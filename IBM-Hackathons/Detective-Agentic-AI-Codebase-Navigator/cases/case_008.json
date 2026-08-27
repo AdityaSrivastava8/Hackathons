@@ -1,0 +1,30 @@
+{
+  "case_id": "CASE-AUT-1974-008",
+  "title": "The Jack Unterweger Murders",
+  "status": "Solved",
+  "crime_type": "Serial Murder / Sexual Violence",
+  "location": "Austria / United States / Czech Republic",
+  "timestamp": "1974-01-01T00:00:00Z",
+  "suspects": [
+    { "name": "Jack Unterweger", "alias": null, "role": "Primary Operator" }
+  ],
+  "evidence": [
+    "Unterweger was convicted of a murder in Austria in 1976",
+    "He was released from prison after being regarded as rehabilitated",
+    "Eleven additional murders were attributed to him in Austria, the United States, and Czechoslovakia",
+    "Forensic psychiatric examination identified severe personality pathology"
+  ],
+  "modus_operandi": "Unterweger targeted women, particularly prostitutes, establishing contact before attacking them. Victims were strangled, and the murders involved sexual and sadistic elements.",
+  "personality_disorder": "A forensic psychiatric examination identified numerous features of malignant narcissism and antisocial personality pathology, together with pronounced sadistic characteristics.",
+  "common_traits": [
+    "Grandiosity",
+    "Manipulation",
+    "Superficial charm",
+    "Need for recognition",
+    "Antisocial behavior",
+    "Sexual sadism",
+    "Exploitation of vulnerable women"
+  ],
+  "summary": "Austrian serial killer and convicted murderer who became a celebrated writer while imprisoned and was released early after being regarded as rehabilitated. Within months of his release, he committed additional murders across Europe and the United States. He was later convicted of 11 murders."
+}
+

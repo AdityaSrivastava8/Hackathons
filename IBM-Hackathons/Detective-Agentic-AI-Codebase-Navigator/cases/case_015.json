@@ -1,0 +1,32 @@
+{
+  "case_id": "CASE-IND-1990-015",
+  "title": "The Gavit Sisters Child-Kidnapping Murders",
+  "status": "Solved",
+  "crime_type": "Serial Murder / Kidnapping / Child Exploitation",
+  "location": "Maharashtra / Pune and surrounding areas",
+  "timestamp": "1990-01-01T00:00:00Z",
+  "suspects": [
+    { "name": "Renuka Shinde", "alias": null, "role": "Primary Operator" },
+    { "name": "Seema Gavit", "alias": null, "role": "Co-operator" }
+  ],
+  "evidence": [
+    "Police investigation established a pattern of repeated child kidnappings",
+    "Children were allegedly used to facilitate theft and other crimes",
+    "The investigation connected the sisters to multiple child deaths",
+    "The sisters were convicted of multiple murders and kidnapping offenses",
+    "The Supreme Court upheld their convictions and death sentences"
+  ],
+  "modus_operandi": "The sisters kidnapped children from public places and allegedly used them to facilitate theft and other criminal activities. Children who became difficult to control or were considered a liability were subsequently murdered, according to the prosecution case.",
+  "personality_disorder": "No confirmed personality-disorder diagnosis should be assigned without a documented forensic psychiatric assessment. The documented behavioral pattern involved manipulation, exploitation of children, calculated violence, and repeated criminal behavior.",
+  "common_traits": [
+    "Targeting vulnerable children",
+    "Manipulation",
+    "Exploitation",
+    "Repeated kidnapping",
+    "Calculated violence",
+    "Financial motivation",
+    "Use of accomplices"
+  ],
+  "summary": "Sisters Renuka Shinde and Seema Gavit were convicted for kidnapping and murdering children in Maharashtra during the 1990s. Their case is notable for the systematic exploitation of children as instruments for criminal activity and the subsequent murders of children who became liabilities."
+}
+

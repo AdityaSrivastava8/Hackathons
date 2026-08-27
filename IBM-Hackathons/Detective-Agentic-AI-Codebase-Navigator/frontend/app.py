@@ -1,31 +1,38 @@
 import streamlit as st
+import json
 import os
-from code_parser.parser import deep_codebase_search
-from rag.vector_search import build_simple_rag_index, query_rag_engine
-from agent.agent_engine import generate_agent_response
+from agent.analyzer import DetectiveAgent
 
-st.set_page_config(page_title="Detective Agentic AI", page_icon="🕵️‍♂️", layout="wide")
+st.set_page_config(page_title="Detective AI Navigator", layout="wide")
+st.title("🕵️‍♂️ Detective AI: Criminal Pattern & Suspect Profiler")
 
-st.title("🕵️‍♂️ Detective Agentic AI Codebase Navigator")
-st.write("Welcome! Search filenames, functions, classes, or raw code logic across your project.")
+agent = DetectiveAgent()
 
-query = st.text_input("Enter search query (e.g., function name, class, or keyword):")
+col1, col2 = st.columns([1, 1])
 
-if st.button("Run Agentic Search"):
-    if query:
-        with st.spinner("Agent is analyzing codebase..."):
-            project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+with col1:
+    st.subheader("Suspect Profile Input")
+    suspect_name = st.text_input("Suspect Name / Alias", "John Doe")
+    behavior = st.text_area("Observed Behaviors & Traits", "Deceitful, targeted vulnerable individuals, financial gain motive")
+    mo = st.text_area("Suspected Modus Operandi", "Laced drinks or food with toxic substance")
+    personality = st.text_input("Personality Notes", "Lack of empathy, narcissism, deceitfulness")
+    
+    analyze_btn = st.button("Analyze Criminal Tendencies")
+
+with col2:
+    st.subheader("Analysis & Pattern Match Results")
+    if analyze_btn:
+        with st.spinner("Searching global database for case matches..."):
+            result = agent.evaluate_suspect(suspect_name, behavior, mo, personality)
             
-            # 1. Fetch AST Matches
-            ast_matches = deep_codebase_search(project_root, query.strip())
+            st.metric("Criminal Tendency Score", result["tendency_score"], delta=result["risk_level"])
+            st.write(f"*Assessment:* {result['summary']}")
             
-            # 2. Fetch RAG Matches
-            docs = build_simple_rag_index(project_root)
-            rag_matches = query_rag_engine(docs, query.strip())
-            
-            # 3. Generate Agent Synthesis
-            agent_output = generate_agent_response(query.strip(), ast_matches, rag_matches)
-            
-            st.markdown(agent_output)
-    else:
-        st.warning("Please enter a search query first.")
+            st.markdown("### Top Matched Historical Cases")
+            for match in result["similar_cases"]:
+                with st.expander(f"Case: {match['metadata']['title']} ({match['metadata']['case_id']})"):
+                    st.write(f"*Location:* {match['metadata']['location']}")
+                    st.write(f"*Crime Type:* {match['metadata']['crime_type']}")
+                    st.write(f"*Pattern Match Snippet:* {match['snippet']}")
+
+                    
