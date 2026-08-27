@@ -1,7 +1,7 @@
 import sys
 import os
 
-# 1. Update system path FIRST so Python can locate internal modules on Streamlit Cloud
+# Update system path FIRST
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import streamlit as st
@@ -10,11 +10,12 @@ import pandas as pd
 from fpdf import FPDF
 from agent.analyzer import DetectiveAgent
 
-# Initialize Session State for B2B Trial Quota
+# Initialize Session State Variables
 if "evals_left" not in st.session_state:
     st.session_state.evals_left = 25
+if "latest_results" not in st.session_state:
+    st.session_state.latest_results = None
 
-# Initialize Detective Agent safely
 @st.cache_resource
 def load_agent():
     return DetectiveAgent()
@@ -90,14 +91,15 @@ st.sidebar.divider()
 st.sidebar.markdown("### B2B Agency Plan")
 st.sidebar.info(f"**Current Tier:** Pro Agency Trial\n\n**Evaluations Remaining:** {st.session_state.evals_left}/25")
 
-if st.session_state.evals_left == 0:
+if st.session_state.evals_left <= 0:
     st.sidebar.error("⚠️ Trial Limit Reached")
     if st.sidebar.button("Upgrade to Enterprise SaaS"):
         st.sidebar.success("Redirecting to B2B Billing Portal...")
 
-# Reset Quota Button for Testing/Demoing
-if st.sidebar.button("🔄 Reset Demo Quota", use_container_width=True):
+# Reset Quota & Clear Session Button
+if st.sidebar.button("🔄 Reset Demo & Clear Cache", use_container_width=True):
     st.session_state.evals_left = 25
+    st.session_state.latest_results = None
     st.rerun()
 
 # Main Profiling Form
@@ -105,10 +107,11 @@ col1, col2 = st.columns([1, 1])
 
 with col1:
     st.subheader("Suspect Information & Observations")
-    suspect_name = st.text_input("Suspect Name / Alias", placeholder="John Doe")
-    age = st.text_input("Age", placeholder="34")
+    suspect_name = st.text_input("Suspect Name / Alias", key="suspect_name_input", placeholder="John Doe")
+    age = st.text_input("Age", key="age_input", placeholder="34")
     behaviors = st.text_area(
         "Observed Behaviors, MO, & Traits",
+        key="behaviors_input",
         height=180,
         placeholder="Entering residential premises during late hours, targeting locked cabinets, using toxic chemicals..."
     )
@@ -117,63 +120,69 @@ with col1:
 with col2:
     st.subheader("Analysis & Precedent Results")
     
-    if analyze_btn and behaviors.strip():
-        if st.session_state.evals_left <= 0:
-            st.error("❌ Evaluation quota exceeded for your trial tier. Please upgrade to Pro Enterprise.")
+    # Process Analysis on Button Click
+    if analyze_btn:
+        if not behaviors.strip():
+            st.warning("Please enter observed behaviors to analyze.")
+        elif st.session_state.evals_left <= 0:
+            st.error("🚫 Evaluation Quota Exceeded! You have reached your 25 trial limit. Click 'Upgrade to Enterprise SaaS' or reset the quota in the sidebar.")
         else:
             with st.spinner("Analyzing traits against ChromaDB precedent vectors..."):
                 try:
                     name_str = suspect_name if suspect_name else "Unnamed Suspect"
-                    results = agent.evaluate_suspect(
+                    res = agent.evaluate_suspect(
                         name=name_str,
                         behavior=behaviors,
                         mo_suspected=behaviors,
                         personality_notes="Observed via profiling dashboard."
                     )
-                    
-                    # Decrement evaluation count safely
                     st.session_state.evals_left -= 1
                     
-                    tendency_score = results.get("tendency_score", "0%")
-                    risk_level = results.get("risk_level", "UNKNOWN")
-                    matched_cases = results.get("similar_cases", [])
-                    summary_text = results.get("summary", "")
-
-                    # Display Risk Indicators
-                    m_col1, m_col2 = st.columns(2)
-                    m_col1.metric("Tendency Score", str(tendency_score))
-                    m_col2.metric("Risk Level", risk_level)
-
-                    st.info(summary_text)
-
-                    st.markdown("#### Matched Precedents")
-                    if matched_cases:
-                        for case in matched_cases:
-                            with st.expander(f"📌 {case.get('case_title', 'Historical Precedent')} ({case.get('location', 'Global')})"):
-                                st.write(f"**Case ID:** {case.get('case_id', 'N/A')}")
-                                st.write(f"**Details:** {case.get('summary', case.get('snippet', 'No detailed snippet available.'))}")
-                    else:
-                        st.info("No close precedent matches found above threshold.")
-
-                    # PDF Download Button
-                    pdf_bytes = generate_pdf_report(
-                        name_str,
-                        age,
-                        tendency_score,
-                        risk_level,
-                        behaviors,
-                        matched_cases
-                    )
-
-                    st.download_button(
-                        label="📥 Download Executive PDF Report",
-                        data=pdf_bytes,
-                        file_name=f"Profile_Report_{name_str.replace(' ', '_')}.pdf",
-                        mime="application/pdf",
-                        use_container_width=True
-                    )
-
+                    # Store results in session state to prevent UI freeze
+                    st.session_state.latest_results = {
+                        "name": name_str,
+                        "age": age,
+                        "behaviors": behaviors,
+                        "tendency_score": res.get("tendency_score", "0%"),
+                        "risk_level": res.get("risk_level", "UNKNOWN"),
+                        "matched_cases": res.get("similar_cases", []),
+                        "summary_text": res.get("summary", "")
+                    }
                 except Exception as err:
                     st.error(f"Analysis failed: {err}")
-    elif analyze_btn:
-        st.warning("Please enter observed behaviors to analyze.") 
+
+    # Render Stored Results if Available
+    if st.session_state.latest_results:
+        res = st.session_state.latest_results
+        
+        m_col1, m_col2 = st.columns(2)
+        m_col1.metric("Tendency Score", str(res["tendency_score"]))
+        m_col2.metric("Risk Level", res["risk_level"])
+
+        st.info(res["summary_text"])
+
+        st.markdown("#### Matched Precedents")
+        if res["matched_cases"]:
+            for case in res["matched_cases"]:
+                with st.expander(f"📌 {case.get('case_title', 'Historical Precedent')} ({case.get('location', 'Global')})"):
+                    st.write(f"**Case ID:** {case.get('case_id', 'N/A')}")
+                    st.write(f"**Details:** {case.get('summary', case.get('snippet', 'No detailed snippet available.'))}")
+        else:
+            st.info("No close precedent matches found above threshold.")
+
+        pdf_bytes = generate_pdf_report(
+            res["name"],
+            res["age"],
+            res["tendency_score"],
+            res["risk_level"],
+            res["behaviors"],
+            res["matched_cases"]
+        )
+
+        st.download_button(
+            label="📥 Download Executive PDF Report",
+            data=pdf_bytes,
+            file_name=f"Profile_Report_{res['name'].replace(' ', '_')}.pdf",
+            mime="application/pdf",
+            use_container_width=True
+        )  
