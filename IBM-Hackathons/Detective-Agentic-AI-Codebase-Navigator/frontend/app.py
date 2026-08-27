@@ -1,7 +1,7 @@
 import sys
 import os
 
-# Update system path FIRST
+# 1. Update system path FIRST
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import streamlit as st
@@ -15,6 +15,8 @@ if "evals_left" not in st.session_state:
     st.session_state.evals_left = 25
 if "latest_results" not in st.session_state:
     st.session_state.latest_results = None
+if "show_pricing" not in st.session_state:
+    st.session_state.show_pricing = False
 
 @st.cache_resource
 def load_agent():
@@ -93,39 +95,80 @@ st.sidebar.info(f"**Current Tier:** Pro Agency Trial\n\n**Evaluations Remaining:
 
 if st.session_state.evals_left <= 0:
     st.sidebar.error("⚠️ Trial Limit Reached")
-    if st.sidebar.button("Upgrade to Enterprise SaaS"):
-        st.sidebar.success("Redirecting to B2B Billing Portal...")
+
+if st.sidebar.button("💳 Upgrade / Billing Portal", use_container_width=True):
+    st.session_state.show_pricing = not st.session_state.show_pricing
 
 # Reset Quota & Clear Session Button
 if st.sidebar.button("🔄 Reset Demo & Clear Cache", use_container_width=True):
     st.session_state.evals_left = 25
     st.session_state.latest_results = None
+    st.session_state.show_pricing = False
     st.rerun()
+
+# B2B SaaS Pricing Window (Displays when redirected)
+if st.session_state.show_pricing:
+    st.warning("🔗 **Redirected to Secure B2B Billing Portal**")
+    st.subheader("Select an Enterprise Subscription Tier")
+    
+    p_col1, p_col2, p_col3 = st.columns(3)
+    
+    with p_col1:
+        st.markdown("### 🥉 Starter Agency")
+        st.markdown("**$99 / month**")
+        st.markdown("* 100 Evaluations / mo\n* Standard RAG Precedent Search\n* Basic PDF Export")
+        if st.button("Select Starter"):
+            st.session_state.evals_left += 100
+            st.session_state.show_pricing = False
+            st.success("Plan updated! +100 evaluations added.")
+            st.rerun()
+            
+    with p_col2:
+        st.markdown("### 🥈 Pro Agency")
+        st.markdown("**$299 / month**")
+        st.markdown("* 500 Evaluations / mo\n* Fast ChromaDB Vector Search\n* Custom JSON File Indexer")
+        if st.button("Select Pro Plan"):
+            st.session_state.evals_left += 500
+            st.session_state.show_pricing = False
+            st.success("Plan updated! +500 evaluations added.")
+            st.rerun()
+
+    with p_col3:
+        st.markdown("### 🥇 Enterprise SaaS")
+        st.markdown("**$799 / month**")
+        st.markdown("* Unlimited Evaluations\n* Private Vector Database\n* Dedicated API & Priority Support")
+        if st.button("Select Enterprise"):
+            st.session_state.evals_left = 99999
+            st.session_state.show_pricing = False
+            st.success("Enterprise Plan activated! Unlimited evaluations enabled.")
+            st.rerun()
+            
+    st.divider()
 
 # Main Profiling Form
 col1, col2 = st.columns([1, 1])
 
 with col1:
     st.subheader("Suspect Information & Observations")
-    suspect_name = st.text_input("Suspect Name / Alias", key="suspect_name_input", placeholder="John Doe")
-    age = st.text_input("Age", key="age_input", placeholder="34")
-    behaviors = st.text_area(
-        "Observed Behaviors, MO, & Traits",
-        key="behaviors_input",
-        height=180,
-        placeholder="Entering residential premises during late hours, targeting locked cabinets, using toxic chemicals..."
-    )
-    analyze_btn = st.button("Run Intelligence Analysis", type="primary", use_container_width=True)
+    with st.form(key="suspect_form", clear_on_submit=False):
+        suspect_name = st.text_input("Suspect Name / Alias", placeholder="John Doe")
+        age = st.text_input("Age", placeholder="34")
+        behaviors = st.text_area(
+            "Observed Behaviors, MO, & Traits",
+            height=180,
+            placeholder="Entering residential premises during late hours, targeting locked cabinets, using toxic chemicals..."
+        )
+        submit_btn = st.form_submit_button("Run Intelligence Analysis", type="primary", use_container_width=True)
 
 with col2:
     st.subheader("Analysis & Precedent Results")
     
-    # Process Analysis on Button Click
-    if analyze_btn:
+    # Process Analysis inside st.form to eliminate rerun freeze loops
+    if submit_btn:
         if not behaviors.strip():
             st.warning("Please enter observed behaviors to analyze.")
         elif st.session_state.evals_left <= 0:
-            st.error("🚫 Evaluation Quota Exceeded! You have reached your 25 trial limit. Click 'Upgrade to Enterprise SaaS' or reset the quota in the sidebar.")
+            st.error("🚫 Evaluation Quota Exceeded! You have reached your 25 trial limit. Click 'Upgrade / Billing Portal' in the sidebar.")
         else:
             with st.spinner("Analyzing traits against ChromaDB precedent vectors..."):
                 try:
@@ -138,7 +181,6 @@ with col2:
                     )
                     st.session_state.evals_left -= 1
                     
-                    # Store results in session state to prevent UI freeze
                     st.session_state.latest_results = {
                         "name": name_str,
                         "age": age,
@@ -151,7 +193,7 @@ with col2:
                 except Exception as err:
                     st.error(f"Analysis failed: {err}")
 
-    # Render Stored Results if Available
+    # Render Stored Results
     if st.session_state.latest_results:
         res = st.session_state.latest_results
         
@@ -185,4 +227,4 @@ with col2:
             file_name=f"Profile_Report_{res['name'].replace(' ', '_')}.pdf",
             mime="application/pdf",
             use_container_width=True
-        )  
+        ) 
