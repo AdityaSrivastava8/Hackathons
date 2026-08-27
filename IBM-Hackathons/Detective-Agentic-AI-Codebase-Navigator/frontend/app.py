@@ -131,7 +131,7 @@ with col2:
                         personality_notes="Observed via profiling dashboard."
                     )
                     
-                    # Decrement remaining evaluation quota on success
+                    # Decrement evaluation count safely
                     st.session_state.evals_left -= 1
                     
                     tendency_score = results.get("tendency_score", "0%")
@@ -172,9 +172,6 @@ with col2:
                         mime="application/pdf",
                         use_container_width=True
                     )
-                    
-                    # Rerun to update sidebar quota counter visually
-                    st.rerun()
 
                 except Exception as err:
                     st.error(f"Analysis failed: {err}")
