@@ -10,7 +10,7 @@ import pandas as pd
 from fpdf import FPDF
 from agent.analyzer import DetectiveAgent
 
-# Initialize Detective Agent
+# Initialize Detective Agent safely
 @st.cache_resource
 def load_agent():
     return DetectiveAgent()
@@ -24,21 +24,6 @@ st.set_page_config(
     layout="wide"
 )
 
-# Helper Function: Safely execute analysis regardless of DetectiveAgent method name
-def run_agent_analysis(agent_instance, suspect_name, behaviors):
-    input_payload = {"name": suspect_name, "behaviors": behaviors}
-    
-    if hasattr(agent_instance, "analyze_suspect"):
-        return agent_instance.analyze_suspect(input_payload)
-    elif hasattr(agent_instance, "analyze"):
-        return agent_instance.analyze(input_payload)
-    elif hasattr(agent_instance, "run_analysis"):
-        return agent_instance.run_analysis(input_payload)
-    elif callable(agent_instance):
-        return agent_instance(input_payload)
-    else:
-        raise AttributeError("DetectiveAgent class has no supported analysis method (analyze_suspect, analyze, or run_analysis).")
-
 # Helper Function: Generate PDF Executive Summary
 def generate_pdf_report(suspect_name, age, tendency_score, risk_level, behaviors, matched_cases):
     pdf = FPDF()
@@ -50,7 +35,7 @@ def generate_pdf_report(suspect_name, age, tendency_score, risk_level, behaviors
     pdf.set_font("Helvetica", "", 11)
     pdf.cell(0, 8, f"Suspect Name: {suspect_name}", new_x="LMARGIN", new_y="NEXT")
     pdf.cell(0, 8, f"Age: {age if age else 'Unknown'}", new_x="LMARGIN", new_y="NEXT")
-    pdf.cell(0, 8, f"Calculated Tendency Score: {tendency_score:.2f}%", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 8, f"Calculated Tendency Score: {tendency_score}", new_x="LMARGIN", new_y="NEXT")
     pdf.cell(0, 8, f"Risk Assessment Level: {risk_level}", new_x="LMARGIN", new_y="NEXT")
     pdf.ln(5)
 
@@ -110,7 +95,7 @@ with col1:
     behaviors = st.text_area(
         "Observed Behaviors, MO, & Traits",
         height=180,
-        placeholder="Entering residential premises during late hours, targeting locked cabinets, using toxic chemicals or poisons..."
+        placeholder="Entering residential premises during late hours, targeting locked cabinets, using toxic chemicals..."
     )
     analyze_btn = st.button("Run Intelligence Analysis", type="primary", use_container_width=True)
 
@@ -120,23 +105,25 @@ with col2:
     if analyze_btn and behaviors.strip():
         with st.spinner("Analyzing traits against ChromaDB precedent vectors..."):
             try:
-                # Execute flexible analysis workflow
-                results = run_agent_analysis(agent, suspect_name, behaviors)
+                name_str = suspect_name if suspect_name else "Unnamed Suspect"
+                results = agent.evaluate_suspect(
+                    name=name_str,
+                    behavior=behaviors,
+                    mo_suspected=behaviors,
+                    personality_notes="Observed via profiling dashboard."
+                )
                 
-                # Handle dictionary or fallback outputs gracefully
-                if isinstance(results, dict):
-                    tendency_score = results.get("tendency_score", 0.0)
-                    risk_level = results.get("risk_level", "UNKNOWN")
-                    matched_cases = results.get("matched_cases", [])
-                else:
-                    tendency_score = 50.0
-                    risk_level = "MODERATE"
-                    matched_cases = []
+                tendency_score = results.get("tendency_score", "0%")
+                risk_level = results.get("risk_level", "UNKNOWN")
+                matched_cases = results.get("similar_cases", [])
+                summary_text = results.get("summary", "")
 
                 # Display Risk Indicators
                 m_col1, m_col2 = st.columns(2)
-                m_col1.metric("Tendency Score", f"{tendency_score:.1f}%")
+                m_col1.metric("Tendency Score", str(tendency_score))
                 m_col2.metric("Risk Level", risk_level)
+
+                st.info(summary_text)
 
                 st.markdown("#### Matched Precedents")
                 if matched_cases:
@@ -149,7 +136,7 @@ with col2:
 
                 # PDF Download Button
                 pdf_bytes = generate_pdf_report(
-                    suspect_name if suspect_name else "Unnamed Suspect",
+                    name_str,
                     age,
                     tendency_score,
                     risk_level,
@@ -160,7 +147,7 @@ with col2:
                 st.download_button(
                     label="📥 Download Executive PDF Report",
                     data=pdf_bytes,
-                    file_name=f"Profile_Report_{suspect_name.replace(' ', '_') if suspect_name else 'Suspect'}.pdf",
+                    file_name=f"Profile_Report_{name_str.replace(' ', '_')}.pdf",
                     mime="application/pdf",
                     use_container_width=True
                 )
