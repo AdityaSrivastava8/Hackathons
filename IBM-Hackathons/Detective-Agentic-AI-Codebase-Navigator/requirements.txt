@@ -1,0 +1,6 @@
+streamlit
+chromadb
+fpdf2
+pandas
+playwright
+yagmail
