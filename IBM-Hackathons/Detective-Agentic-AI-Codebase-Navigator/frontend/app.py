@@ -10,6 +10,10 @@ import pandas as pd
 from fpdf import FPDF
 from agent.analyzer import DetectiveAgent
 
+# Initialize Session State for B2B Trial Quota
+if "evals_left" not in st.session_state:
+    st.session_state.evals_left = 25
+
 # Initialize Detective Agent safely
 @st.cache_resource
 def load_agent():
@@ -69,7 +73,6 @@ uploaded_file = st.sidebar.file_uploader("Upload Case JSON to Vector DB", type=[
 if uploaded_file is not None:
     try:
         case_data = json.load(uploaded_file)
-        # Save to cases directory
         cases_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "cases"))
         os.makedirs(cases_dir, exist_ok=True)
         save_path = os.path.join(cases_dir, uploaded_file.name)
@@ -82,8 +85,20 @@ if uploaded_file is not None:
         st.sidebar.error(f"Failed to upload case JSON: {e}")
 
 st.sidebar.divider()
+
+# Dynamic B2B Agency Plan Sidebar Widget
 st.sidebar.markdown("### B2B Agency Plan")
-st.sidebar.info("**Current Tier:** Pro Agency Trial\n\n**Evaluations Remaining:** 25/25")
+st.sidebar.info(f"**Current Tier:** Pro Agency Trial\n\n**Evaluations Remaining:** {st.session_state.evals_left}/25")
+
+if st.session_state.evals_left == 0:
+    st.sidebar.error("⚠️ Trial Limit Reached")
+    if st.sidebar.button("Upgrade to Enterprise SaaS"):
+        st.sidebar.success("Redirecting to B2B Billing Portal...")
+
+# Reset Quota Button for Testing/Demoing
+if st.sidebar.button("🔄 Reset Demo Quota", use_container_width=True):
+    st.session_state.evals_left = 25
+    st.rerun()
 
 # Main Profiling Form
 col1, col2 = st.columns([1, 1])
@@ -103,55 +118,65 @@ with col2:
     st.subheader("Analysis & Precedent Results")
     
     if analyze_btn and behaviors.strip():
-        with st.spinner("Analyzing traits against ChromaDB precedent vectors..."):
-            try:
-                name_str = suspect_name if suspect_name else "Unnamed Suspect"
-                results = agent.evaluate_suspect(
-                    name=name_str,
-                    behavior=behaviors,
-                    mo_suspected=behaviors,
-                    personality_notes="Observed via profiling dashboard."
-                )
-                
-                tendency_score = results.get("tendency_score", "0%")
-                risk_level = results.get("risk_level", "UNKNOWN")
-                matched_cases = results.get("similar_cases", [])
-                summary_text = results.get("summary", "")
+        if st.session_state.evals_left <= 0:
+            st.error("❌ Evaluation quota exceeded for your trial tier. Please upgrade to Pro Enterprise.")
+        else:
+            with st.spinner("Analyzing traits against ChromaDB precedent vectors..."):
+                try:
+                    name_str = suspect_name if suspect_name else "Unnamed Suspect"
+                    results = agent.evaluate_suspect(
+                        name=name_str,
+                        behavior=behaviors,
+                        mo_suspected=behaviors,
+                        personality_notes="Observed via profiling dashboard."
+                    )
+                    
+                    # Decrement remaining evaluation quota on success
+                    st.session_state.evals_left -= 1
+                    
+                    tendency_score = results.get("tendency_score", "0%")
+                    risk_level = results.get("risk_level", "UNKNOWN")
+                    matched_cases = results.get("similar_cases", [])
+                    summary_text = results.get("summary", "")
 
-                # Display Risk Indicators
-                m_col1, m_col2 = st.columns(2)
-                m_col1.metric("Tendency Score", str(tendency_score))
-                m_col2.metric("Risk Level", risk_level)
+                    # Display Risk Indicators
+                    m_col1, m_col2 = st.columns(2)
+                    m_col1.metric("Tendency Score", str(tendency_score))
+                    m_col2.metric("Risk Level", risk_level)
 
-                st.info(summary_text)
+                    st.info(summary_text)
 
-                st.markdown("#### Matched Precedents")
-                if matched_cases:
-                    for case in matched_cases:
-                        with st.expander(f"📌 {case.get('case_title', 'Historical Precedent')} ({case.get('location', 'Global')})"):
-                            st.write(f"**Case ID:** {case.get('case_id', 'N/A')}")
-                            st.write(f"**Details:** {case.get('summary', case.get('snippet', 'No detailed snippet available.'))}")
-                else:
-                    st.info("No close precedent matches found above threshold.")
+                    st.markdown("#### Matched Precedents")
+                    if matched_cases:
+                        for case in matched_cases:
+                            with st.expander(f"📌 {case.get('case_title', 'Historical Precedent')} ({case.get('location', 'Global')})"):
+                                st.write(f"**Case ID:** {case.get('case_id', 'N/A')}")
+                                st.write(f"**Details:** {case.get('summary', case.get('snippet', 'No detailed snippet available.'))}")
+                    else:
+                        st.info("No close precedent matches found above threshold.")
 
-                # PDF Download Button
-                pdf_bytes = generate_pdf_report(
-                    name_str,
-                    age,
-                    tendency_score,
-                    risk_level,
-                    behaviors,
-                    matched_cases
-                )
+                    # PDF Download Button
+                    pdf_bytes = generate_pdf_report(
+                        name_str,
+                        age,
+                        tendency_score,
+                        risk_level,
+                        behaviors,
+                        matched_cases
+                    )
 
-                st.download_button(
-                    label="📥 Download Executive PDF Report",
-                    data=pdf_bytes,
-                    file_name=f"Profile_Report_{name_str.replace(' ', '_')}.pdf",
-                    mime="application/pdf",
-                    use_container_width=True
-                )
-            except Exception as err:
-                st.error(f"Analysis failed: {err}")
+                    st.download_button(
+                        label="📥 Download Executive PDF Report",
+                        data=pdf_bytes,
+                        file_name=f"Profile_Report_{name_str.replace(' ', '_')}.pdf",
+                        mime="application/pdf",
+                        use_container_width=True
+                    )
+                    
+                    # Rerun to update sidebar quota counter visually
+                    st.rerun()
+
+                except Exception as err:
+                    st.error(f"Analysis failed: {err}")
     elif analyze_btn:
         st.warning("Please enter observed behaviors to analyze.") 
