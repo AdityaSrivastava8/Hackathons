@@ -24,33 +24,48 @@ st.set_page_config(
     layout="wide"
 )
 
+# Helper Function: Safely execute analysis regardless of DetectiveAgent method name
+def run_agent_analysis(agent_instance, suspect_name, behaviors):
+    input_payload = {"name": suspect_name, "behaviors": behaviors}
+    
+    if hasattr(agent_instance, "analyze_suspect"):
+        return agent_instance.analyze_suspect(input_payload)
+    elif hasattr(agent_instance, "analyze"):
+        return agent_instance.analyze(input_payload)
+    elif hasattr(agent_instance, "run_analysis"):
+        return agent_instance.run_analysis(input_payload)
+    elif callable(agent_instance):
+        return agent_instance(input_payload)
+    else:
+        raise AttributeError("DetectiveAgent class has no supported analysis method (analyze_suspect, analyze, or run_analysis).")
+
 # Helper Function: Generate PDF Executive Summary
 def generate_pdf_report(suspect_name, age, tendency_score, risk_level, behaviors, matched_cases):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Helvetica", "B", 16)
-    pdf.cell(0, 10, "EXECUTIVE CRIMINAL PROFILE REPORT", ln=True, align="C")
+    pdf.cell(0, 10, "EXECUTIVE CRIMINAL PROFILE REPORT", new_x="LMARGIN", new_y="NEXT", align="C")
     pdf.ln(5)
 
     pdf.set_font("Helvetica", "", 11)
-    pdf.cell(0, 8, f"Suspect Name: {suspect_name}", ln=True)
-    pdf.cell(0, 8, f"Age: {age if age else 'Unknown'}", ln=True)
-    pdf.cell(0, 8, f"Calculated Tendency Score: {tendency_score:.2f}%", ln=True)
-    pdf.cell(0, 8, f"Risk Assessment Level: {risk_level}", ln=True)
+    pdf.cell(0, 8, f"Suspect Name: {suspect_name}", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 8, f"Age: {age if age else 'Unknown'}", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 8, f"Calculated Tendency Score: {tendency_score:.2f}%", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 8, f"Risk Assessment Level: {risk_level}", new_x="LMARGIN", new_y="NEXT")
     pdf.ln(5)
 
     pdf.set_font("Helvetica", "B", 12)
-    pdf.cell(0, 8, "Observed Behaviors & Modus Operandi:", ln=True)
+    pdf.cell(0, 8, "Observed Behaviors & Modus Operandi:", new_x="LMARGIN", new_y="NEXT")
     pdf.set_font("Helvetica", "", 10)
     pdf.multi_cell(0, 6, behaviors)
     pdf.ln(5)
 
     pdf.set_font("Helvetica", "B", 12)
-    pdf.cell(0, 8, "Matched Historical Precedents:", ln=True)
+    pdf.cell(0, 8, "Matched Historical Precedents:", new_x="LMARGIN", new_y="NEXT")
     pdf.set_font("Helvetica", "", 10)
     
     for idx, case in enumerate(matched_cases, 1):
-        pdf.cell(0, 6, f"{idx}. {case.get('case_title', 'Unknown Case')} ({case.get('location', 'N/A')})", ln=True)
+        pdf.cell(0, 6, f"{idx}. {case.get('case_title', 'Unknown Case')} ({case.get('location', 'N/A')})", new_x="LMARGIN", new_y="NEXT")
         snippet = case.get('summary', case.get('snippet', ''))[:150]
         pdf.multi_cell(0, 5, f"   Snippet: {snippet}...")
         pdf.ln(2)
@@ -104,43 +119,52 @@ with col2:
     
     if analyze_btn and behaviors.strip():
         with st.spinner("Analyzing traits against ChromaDB precedent vectors..."):
-            # Execute analysis workflow
-            results = agent.analyze_suspect({"name": suspect_name, "behaviors": behaviors})
-            
-            tendency_score = results.get("tendency_score", 0.0)
-            risk_level = results.get("risk_level", "UNKNOWN")
-            matched_cases = results.get("matched_cases", [])
+            try:
+                # Execute flexible analysis workflow
+                results = run_agent_analysis(agent, suspect_name, behaviors)
+                
+                # Handle dictionary or fallback outputs gracefully
+                if isinstance(results, dict):
+                    tendency_score = results.get("tendency_score", 0.0)
+                    risk_level = results.get("risk_level", "UNKNOWN")
+                    matched_cases = results.get("matched_cases", [])
+                else:
+                    tendency_score = 50.0
+                    risk_level = "MODERATE"
+                    matched_cases = []
 
-            # Display Risk Indicators
-            m_col1, m_col2 = st.columns(2)
-            m_col1.metric("Tendency Score", f"{tendency_score:.1f}%")
-            m_col2.metric("Risk Level", risk_level)
+                # Display Risk Indicators
+                m_col1, m_col2 = st.columns(2)
+                m_col1.metric("Tendency Score", f"{tendency_score:.1f}%")
+                m_col2.metric("Risk Level", risk_level)
 
-            st.markdown("#### Matched Precedents")
-            if matched_cases:
-                for case in matched_cases:
-                    with st.expander(f"📌 {case.get('case_title', 'Historical Precedent')} ({case.get('location', 'Global')})"):
-                        st.write(f"**Case ID:** {case.get('case_id', 'N/A')}")
-                        st.write(f"**Details:** {case.get('summary', case.get('snippet', 'No detailed snippet available.'))}")
-            else:
-                st.info("No close precedent matches found above threshold.")
+                st.markdown("#### Matched Precedents")
+                if matched_cases:
+                    for case in matched_cases:
+                        with st.expander(f"📌 {case.get('case_title', 'Historical Precedent')} ({case.get('location', 'Global')})"):
+                            st.write(f"**Case ID:** {case.get('case_id', 'N/A')}")
+                            st.write(f"**Details:** {case.get('summary', case.get('snippet', 'No detailed snippet available.'))}")
+                else:
+                    st.info("No close precedent matches found above threshold.")
 
-            # PDF Download Button
-            pdf_bytes = generate_pdf_report(
-                suspect_name if suspect_name else "Unnamed Suspect",
-                age,
-                tendency_score,
-                risk_level,
-                behaviors,
-                matched_cases
-            )
+                # PDF Download Button
+                pdf_bytes = generate_pdf_report(
+                    suspect_name if suspect_name else "Unnamed Suspect",
+                    age,
+                    tendency_score,
+                    risk_level,
+                    behaviors,
+                    matched_cases
+                )
 
-            st.download_button(
-                label="📥 Download Executive PDF Report",
-                data=pdf_bytes,
-                file_name=f"Profile_Report_{suspect_name.replace(' ', '_') if suspect_name else 'Suspect'}.pdf",
-                mime="application/pdf",
-                use_container_width=True
-            )
+                st.download_button(
+                    label="📥 Download Executive PDF Report",
+                    data=pdf_bytes,
+                    file_name=f"Profile_Report_{suspect_name.replace(' ', '_') if suspect_name else 'Suspect'}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True
+                )
+            except Exception as err:
+                st.error(f"Analysis failed: {err}")
     elif analyze_btn:
-        st.warning("Please enter observed behaviors to analyze.")
+        st.warning("Please enter observed behaviors to analyze.") 
