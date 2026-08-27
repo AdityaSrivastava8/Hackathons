@@ -1,0 +1,43 @@
+# Python
+_pycache_/
+*.py[cod]
+*.pyo
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# Environment variables / secrets
+.env
+.env.*
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+
+# RAG generated data
+chroma_db/
+vector_store/
+*.faiss
+*.index
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+
+# Build files
+dist/
+build/
+
+# Test/cache
+.pytest_cache/
+.coverage
+htmlcov/
