@@ -28,15 +28,26 @@ COLD_EMAIL_SUBJECT = "25 Free AI Profiling Credits for {agency_name} — Detecti
 
 COLD_EMAIL_BODY = """Hello {agency_name},
 
-We noticed your agency operating in {location}. We are reaching out to introduce Detective Agentic AI — an automated criminal profiling and precedent matching system built for legal & investigative agencies.
+We noticed your agency operating in {location}. We are reaching out to introduce Detective Agentic AI — an automated criminal profiling and precedent-matching system purpose-built for legal and investigative agencies like yours.
 
-You can test our platform immediately with 25 FREE Profiling Evaluations. Once your 25 free credits are completed, you can seamlessly select a plan (Starter, Pro, or Enterprise) and scan our UPI QR code to instantly top up your account quota.
+What we offer:
+- Instant behavioural risk scoring against a database of historical criminal precedents
+- AI-generated suspect profiles with downloadable PDF reports
+- Secure, session-isolated processing — your case data stays with you
+- Flexible pay-as-you-go plans starting at Rs. 500 (Starter / 100 evaluations)
 
-Start your trial here: https://detective-ai.streamlit.app
+Claim your 25 FREE Profiling Evaluations now — no credit card required:
+https://detective-ai.streamlit.app
+
+If you have any questions or would like a live walkthrough, simply reply to this email.
 
 Best regards,
-Aditya Srivastava
-Lead Developer & Founder"""
+
+Aditya Srivastava          |  Akshat Verma
+Lead Developer & Founder   |  Co-Founder
+yeahboyadi@gmail.com       |  akshat.v2166@gmail.com
+
+Detective Agentic AI — https://detective-ai.streamlit.app"""
 
 
 # ── Persistence helpers ────────────────────────────────────────────────────────
