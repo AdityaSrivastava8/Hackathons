@@ -1,0 +1,31 @@
+{
+  "case_id": "CASE-IND-2008-013",
+  "title": "The Psycho Shankar Serial Crimes",
+  "status": "Solved",
+  "crime_type": "Serial Murder / Rape / Robbery",
+  "location": "Tamil Nadu / Karnataka / Andhra Pradesh",
+  "timestamp": "2008-01-01T00:00:00Z",
+  "suspects": [
+    { "name": "M. Jaishankar", "alias": "Psycho Shankar", "role": "Primary Operator" }
+  ],
+  "evidence": [
+    "Multiple criminal cases connected Jaishankar to rape, murder, and robbery",
+    "Police investigations linked him to numerous attacks across southern India",
+    "He was convicted in murder and rape cases",
+    "He was imprisoned in Bangalore Central Jail following his convictions",
+    "He was subsequently diagnosed as mentally ill while incarcerated"
+  ],
+  "modus_operandi": "Jaishankar targeted women, often attacking them after gaining access to them through roadside encounters and other circumstances. His criminal pattern involved sexual assault, murder, robbery, and attempts to evade detection.",
+  "personality_disorder": "A specific personality-disorder diagnosis is not sufficiently documented in reliable public records. He was reported to have been diagnosed as mentally ill while imprisoned, but the exact clinical diagnosis should not be inferred from the nickname 'Psycho Shankar'.",
+  "common_traits": [
+    "Sexual predation",
+    "Violence",
+    "Robbery",
+    "Manipulation",
+    "Repeated offending",
+    "Targeting vulnerable women",
+    "Attempts to evade law enforcement"
+  ],
+  "summary": "Indian serial offender responsible for a series of rape, murder, and robbery cases across Tamil Nadu and Karnataka. He was accused in numerous cases and convicted in murder and rape cases before dying by suicide in Bangalore Central Jail in 2018."
+}
+

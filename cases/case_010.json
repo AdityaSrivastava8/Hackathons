@@ -1,0 +1,31 @@
+{
+  "case_id": "CASE-NOR-2011-010",
+  "title": "The 2011 Norway Terror Attacks",
+  "status": "Solved",
+  "crime_type": "Mass Murder / Terrorism",
+  "location": "Oslo and Utøya / Norway",
+  "timestamp": "2011-07-22T00:00:00Z",
+  "suspects": [
+    { "name": "Anders Behring Breivik", "alias": null, "role": "Primary Operator" }
+  ],
+  "evidence": [
+    "Extensive digital and physical evidence connected Breivik to the attacks",
+    "A vehicle bomb detonated in central Oslo",
+    "Firearms and ammunition were used during the Utøya attack",
+    "Breivik was arrested at the Utøya crime scene",
+    "He admitted carrying out the attacks"
+  ],
+  "modus_operandi": "Breivik planned the attacks over an extended period, prepared explosives and firearms, detonated a vehicle bomb in Oslo, and subsequently traveled to Utøya where he systematically shot people attending a youth political camp.",
+  "personality_disorder": "A second court-appointed psychiatric evaluation diagnosed Antisocial Personality Disorder and Narcissistic Personality Disorder and concluded that Breivik was not psychotic at the time of the attacks.",
+  "common_traits": [
+    "Grandiosity",
+    "Extreme ideological fixation",
+    "Need for recognition",
+    "Lack of empathy",
+    "Manipulation",
+    "Long-term planning",
+    "Desire for notoriety"
+  ],
+  "summary": "Norwegian mass murderer responsible for the 2011 attacks in Oslo and Utøya. Unlike the serial killers in the other records, Breivik carried out a mass-casualty terrorist attack rather than a conventional serial-murder pattern. A second psychiatric evaluation diagnosed Narcissistic Personality Disorder and Antisocial Personality Disorder."
+}
+

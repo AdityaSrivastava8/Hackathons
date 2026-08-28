@@ -1,0 +1,28 @@
+{
+  "case_id": "CASE-USA-1974-002",
+  "title": "The BTK Serial Murders",
+  "status": "Solved",
+  "crime_type": "Serial Murder / Sexual Violence / Kidnapping",
+  "location": "Kansas / Wichita, United States",
+  "timestamp": "1974-01-15T00:00:00Z",
+  "suspects": [
+    { "name": "Dennis Rader", "alias": "BTK", "role": "Primary Operator" }
+  ],
+  "evidence": [
+    "Physical and forensic evidence connected Rader to multiple murder scenes",
+    "Letters sent by the killer to police and media contained information about the crimes",
+    "Digital evidence from a floppy disk helped investigators identify Rader",
+    "Rader's later confession established responsibility for ten murders"
+  ],
+  "modus_operandi": "Selects victims in the Wichita area, surveils or stalks them, enters or approaches their residences, restrains them, and kills them through strangulation. Rader subsequently communicated with police and media, seeking recognition and attention for his crimes.",
+  "personality_disorder": "Forensic psychologist Robert Mendoza diagnosed Dennis Rader with Narcissistic Personality Disorder, Obsessive-Compulsive Personality Disorder, and Antisocial Personality Disorder. The evaluation described grandiosity, a pathological need for attention and admiration, rigid preoccupation with order, and lack of empathy.",
+  "common_traits": [
+    "Grandiosity and desire for recognition",
+    "Need for control and domination",
+    "Manipulation and deception",
+    "Lack of empathy",
+    "Highly organized offending",
+    "Communication with authorities and media for attention"
+  ],
+  "summary": "American serial killer responsible for ten murders between 1974 and 1991. Rader maintained a concealed double life while presenting himself publicly as a family man and community member. His documented forensic evaluation identified narcissistic, obsessive-compulsive, and antisocial personality disorders."
+}

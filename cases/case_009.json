@@ -1,0 +1,31 @@
+{
+  "case_id": "CASE-UK-1972-009",
+  "title": "The Harold Shipman Patient Murders",
+  "status": "Solved",
+  "crime_type": "Serial Murder / Medical Abuse",
+  "location": "England / United Kingdom",
+  "timestamp": "1972-01-01T00:00:00Z",
+  "suspects": [
+    { "name": "Harold Shipman", "alias": "Dr. Death", "role": "Primary Operator" }
+  ],
+  "evidence": [
+    "Medical records showed unusually high numbers of patient deaths",
+    "Toxicology identified lethal levels of diamorphine in victims",
+    "Shipman falsified medical records and death certificates",
+    "A forged will connected Shipman to the estate of victim Kathleen Grundy",
+    "The official Shipman Inquiry identified 215 unlawful killings and suspected 45 additional deaths"
+  ],
+  "modus_operandi": "Uses his position as a general practitioner to gain complete trust from patients. During home visits he administers lethal doses of diamorphine, records or reports a fabricated natural cause of death, and falsifies medical documentation to conceal the killings.",
+  "personality_disorder": "No definitive clinical personality-disorder diagnosis should be assigned. The documented behavioral profile includes deception, manipulation, abuse of professional authority, falsification of records, and extreme exploitation of patient trust.",
+  "common_traits": [
+    "Abuse of professional authority",
+    "Deception",
+    "Manipulation",
+    "Extreme secrecy",
+    "Falsification of records",
+    "Targeting vulnerable elderly patients",
+    "Exploitation of institutional trust"
+  ],
+  "summary": "British physician who murdered patients over decades by exploiting his position as a trusted doctor. The official inquiry concluded that he unlawfully killed 215 patients and found a real suspicion concerning 45 additional deaths."
+}
+

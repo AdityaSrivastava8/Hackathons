@@ -1,0 +1,31 @@
+{
+  "case_id": "CASE-IND-1965-011",
+  "title": "The Raman Raghav Serial Murders",
+  "status": "Solved",
+  "crime_type": "Serial Murder",
+  "location": "Maharashtra / Mumbai",
+  "timestamp": "1965-01-01T00:00:00Z",
+  "suspects": [
+    { "name": "Raman Raghav", "alias": "Psycho Raman", "role": "Primary Operator" }
+  ],
+  "evidence": [
+    "Bloodstained clothing and physical evidence were recovered at the time of his arrest",
+    "Fingerprint evidence connected him to the investigation",
+    "He confessed to numerous murders during police interrogation",
+    "A Special Medical Board of psychiatrists examined him repeatedly",
+    "The psychiatric board diagnosed chronic paranoid schizophrenia with auditory hallucinations"
+  ],
+  "modus_operandi": "Raghav primarily targeted vulnerable people living or sleeping in impoverished areas of Mumbai and attacked them with a heavy blunt weapon, often while they were asleep or otherwise defenseless.",
+  "personality_disorder": "Chronic Paranoid Schizophrenia / Psychosis. A Special Medical Board concluded that Raghav was suffering from chronic paranoid schizophrenia or paraphrenia accompanied by auditory hallucinations, fixed delusions, and lack of insight into his illness.",
+  "common_traits": [
+    "Fixed persecutory and grandiose delusions",
+    "Auditory hallucinations",
+    "Lack of insight into mental illness",
+    "Targeting vulnerable victims",
+    "Repeated nocturnal attacks",
+    "Extreme violence",
+    "Social isolation"
+  ],
+  "summary": "Indian serial killer active in Mumbai during the 1960s who was linked to dozens of killings. His case is particularly significant because a Special Medical Board formally diagnosed chronic paranoid schizophrenia and found him mentally unsound, ultimately leading to his death sentence being commuted to life imprisonment."
+}
+

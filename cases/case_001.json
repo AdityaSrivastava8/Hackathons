@@ -1,0 +1,25 @@
+{
+  "case_id": "CASE-IND-2009-001",
+  "title": "The Cyanide serial Poisonings",
+  "status": "Solved",
+  "crime_type": "Serial Murder / Robbery",
+  "location": "Karnataka / Mangalore",
+  "timestamp": "2009-10-21T00:00:00Z",
+  "suspects": [
+    { "name": "Mohan Kumar", "alias": "Cyanide Mohan", "role": "Primary Operator" }
+  ],
+  "evidence": [
+    "Traces of potassium cyanide retrieved from hotel bathroom drains",
+    "Stolen gold jewelry recovered from local pawn shops",
+    "Fake bus stand identity cards and forged marriage papers"
+  ],
+  "modus_operandi": "Lures women under the pretext of marriage, takes them to hotels, convinces them to take contraceptive pills laced with potassium cyanide, steals their jewelry, and leaves the scene.",
+  "personality_disorder": "Antisocial Personality Disorder (Psychopathy) with extreme deceitfulness, lack of empathy, and predatory financial exploitation.",
+  "common_traits": [
+    "Targeting financially vulnerable women seeking marriage",
+    "Use of fast-acting lethal poison (Cyanide)",
+    "Robbery of gold and cash post-mortem",
+    "Impersonation of professional authority figures"
+  ],
+  "summary": "Serial operator linked to 20 poisoning cases following a meticulous pattern of deceit, poison administration, and financial gain."
+}

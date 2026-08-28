@@ -1,0 +1,31 @@
+{
+  "case_id": "CASE-IND-1987-012",
+  "title": "The Auto Shankar Murders",
+  "status": "Solved",
+  "crime_type": "Serial Murder / Kidnapping / Organized Crime",
+  "location": "Tamil Nadu / Chennai",
+  "timestamp": "1987-10-01T00:00:00Z",
+  "suspects": [
+    { "name": "Gowri Shankar", "alias": "Auto Shankar", "role": "Primary Operator" }
+  ],
+  "evidence": [
+    "Police investigation connected Shankar and his associates to multiple disappearances",
+    "Victims' remains were recovered after the investigation",
+    "Shankar confessed to multiple murders",
+    "The trial resulted in murder convictions and death sentences",
+    "His accomplices were also convicted in connection with the murders"
+  ],
+  "modus_operandi": "Shankar operated within a criminal network involved in illicit liquor and prostitution. He used associates and his criminal influence to lure, abduct, and murder victims, subsequently concealing or destroying their remains.",
+  "personality_disorder": "No reliably documented formal personality-disorder diagnosis should be assigned. His documented behavioral profile includes manipulation, coercive control, violence, criminal opportunism, and exploitation of people within his criminal network.",
+  "common_traits": [
+    "Manipulation",
+    "Coercive control",
+    "Criminal opportunism",
+    "Violence against vulnerable victims",
+    "Use of accomplices",
+    "Concealment of bodies",
+    "Organized criminal activity"
+  ],
+  "summary": "Gowri Shankar, popularly known as Auto Shankar, was a Tamil Nadu criminal involved in multiple murders, kidnappings, and organized criminal activity. He was convicted of six murders and executed in 1995."
+}
+

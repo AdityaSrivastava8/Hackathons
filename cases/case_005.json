@@ -1,0 +1,29 @@
+{
+  "case_id": "CASE-USA-1989-005",
+  "title": "The Aileen Wuornos Serial Murders",
+  "status": "Solved",
+  "crime_type": "Serial Murder / Robbery",
+  "location": "Florida / United States",
+  "timestamp": "1989-11-30T00:00:00Z",
+  "suspects": [
+    { "name": "Aileen Wuornos", "alias": null, "role": "Primary Operator" }
+  ],
+  "evidence": [
+    "Victims' vehicles and personal property were recovered",
+    "Items belonging to victims were pawned or disposed of by Wuornos",
+    "Ballistic evidence connected the murders to Wuornos",
+    "Wuornos was convicted of multiple first-degree murders"
+  ],
+  "modus_operandi": "Wuornos encountered male victims while working as a sex worker, entered their vehicles or traveled with them, and shot them. Victims' property and vehicles were subsequently taken, pawned, or disposed of.",
+  "personality_disorder": "Forensic assessments documented Borderline Personality Disorder and Antisocial Personality Disorder. A later forensic study involving a clinical evaluation also found a high level of psychopathy, with a reported PCL-R score of 32.",
+  "common_traits": [
+    "Antisocial behavior",
+    "Impulsivity",
+    "Interpersonal instability",
+    "Aggression",
+    "Financial exploitation",
+    "History of trauma and instability",
+    "Predatory violence"
+  ],
+  "summary": "American serial killer convicted of murdering seven men. Her case is important for forensic psychology because clinical and forensic evaluations identified both borderline and antisocial personality pathology, while later research found substantial psychopathic characteristics."
+}

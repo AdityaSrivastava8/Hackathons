@@ -1,0 +1,30 @@
+{
+  "case_id": "CASE-USSR-1978-007",
+  "title": "The Rostov Ripper Murders",
+  "status": "Solved",
+  "crime_type": "Serial Murder / Sexual Violence",
+  "location": "Rostov Oblast / Soviet Union",
+  "timestamp": "1978-11-22T00:00:00Z",
+  "suspects": [
+    { "name": "Andrei Chikatilo", "alias": "The Rostov Ripper", "role": "Primary Operator" }
+  ],
+  "evidence": [
+    "Physical and forensic evidence connected Chikatilo to multiple victims",
+    "Police investigation linked him to a large series of disappearances and murders",
+    "Chikatilo confessed to numerous killings",
+    "A psychiatric evaluation was conducted at the Serbsky Institute before trial"
+  ],
+  "modus_operandi": "Chikatilo approached vulnerable women and children, often near transportation hubs, markets, and other public locations. He lured victims to secluded areas where he sexually assaulted and murdered them, frequently inflicting extensive physical injuries.",
+  "personality_disorder": "A psychiatric evaluation conducted at the Serbsky Institute concluded that Chikatilo had Borderline Personality Disorder with sadistic features. The evaluation nevertheless found him competent to stand trial.",
+  "common_traits": [
+    "Sexual predation",
+    "Sadistic violence",
+    "Targeting vulnerable victims",
+    "Manipulation and luring",
+    "Repetitive offending",
+    "Extreme physical violence",
+    "Difficulty controlling violent impulses"
+  ],
+  "summary": "Soviet serial killer convicted of murdering 52 people. His forensic psychiatric evaluation identified Borderline Personality Disorder with sadistic features while finding him legally competent to stand trial."
+}
+

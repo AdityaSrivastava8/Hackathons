@@ -1,0 +1,29 @@
+{
+  "case_id": "CASE-UK-1975-004",
+  "title": "The Yorkshire Ripper Murders",
+  "status": "Solved",
+  "crime_type": "Serial Murder / Sexual Violence",
+  "location": "Yorkshire / England, United Kingdom",
+  "timestamp": "1975-10-30T00:00:00Z",
+  "suspects": [
+    { "name": "Peter Sutcliffe", "alias": "The Yorkshire Ripper", "role": "Primary Operator" }
+  ],
+  "evidence": [
+    "Physical evidence linked Sutcliffe to multiple attacks",
+    "Police investigation connected him to thirteen murders and several attempted murders",
+    "Sutcliffe made admissions concerning the killings",
+    "Multiple psychiatrists examined him and diagnosed paranoid schizophrenia"
+  ],
+  "modus_operandi": "Sutcliffe attacked women, frequently approaching victims in public places before striking them with weapons. He used hammers, knives, and other weapons and repeatedly attacked women over a period of several years.",
+  "personality_disorder": "Paranoid schizophrenia was diagnosed by multiple psychiatrists during the 1981 trial and subsequently confirmed during his psychiatric treatment. This is a psychotic disorder rather than a personality disorder. The trial jury nevertheless rejected his diminished-responsibility defense and convicted him of murder.",
+  "common_traits": [
+    "Delusional beliefs",
+    "Auditory hallucination claims",
+    "Religious or persecutory themes",
+    "Repeated predatory attacks",
+    "Escalating violence",
+    "Targeting of women",
+    "Persistent violent behavior"
+  ],
+  "summary": "British serial killer responsible for murdering thirteen women and attempting to murder several others. Unlike many serial-killer cases characterized primarily by antisocial or psychopathic traits, Sutcliffe's case involved documented severe psychotic illness, with multiple psychiatrists diagnosing paranoid schizophrenia."
+}

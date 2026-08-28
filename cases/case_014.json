@@ -1,0 +1,31 @@
+{
+  "case_id": "CASE-IND-1998-014",
+  "title": "The Chandrakant Jha Serial Murders",
+  "status": "Solved",
+  "crime_type": "Serial Murder / Dismemberment",
+  "location": "Delhi / West Delhi",
+  "timestamp": "1998-01-01T00:00:00Z",
+  "suspects": [
+    { "name": "Chandrakant Jha", "alias": "The Butcher of Delhi", "role": "Primary Operator" }
+  ],
+  "evidence": [
+    "Victims' bodies and body parts were recovered from different locations",
+    "Police investigation connected Jha to multiple disappearances",
+    "Jha's relationships with victims helped establish the pattern of offending",
+    "Physical and circumstantial evidence linked him to multiple murders",
+    "He was convicted of multiple murders"
+  ],
+  "modus_operandi": "Jha befriended young male migrant workers and developed relationships with them before murdering and dismembering them. He subsequently attempted to conceal or manipulate the discovery of their remains.",
+  "personality_disorder": "No confirmed clinical personality-disorder diagnosis should be assigned from the publicly available evidence. His documented behavioral profile demonstrates manipulation, interpersonal exploitation, deception, and extreme violence.",
+  "common_traits": [
+    "Manipulation through interpersonal relationships",
+    "Targeting socially vulnerable migrants",
+    "Deception",
+    "Extreme violence",
+    "Dismemberment",
+    "Body concealment",
+    "Control over victims"
+  ],
+  "summary": "Delhi serial killer who befriended young male migrant workers before murdering and dismembering them. Jha was convicted of multiple murders and received death sentences that were subsequently commuted to life imprisonment."
+}
+

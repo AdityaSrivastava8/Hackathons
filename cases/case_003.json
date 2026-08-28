@@ -1,0 +1,29 @@
+{
+  "case_id": "CASE-USA-1978-003",
+  "title": "The Jeffrey Dahmer Murders",
+  "status": "Solved",
+  "crime_type": "Serial Murder / Sexual Violence / Necrophilia",
+  "location": "Wisconsin / Milwaukee, United States",
+  "timestamp": "1978-07-01T00:00:00Z",
+  "suspects": [
+    { "name": "Jeffrey Dahmer", "alias": "Milwaukee Cannibal", "role": "Primary Operator" }
+  ],
+  "evidence": [
+    "Human remains were discovered inside Dahmer's apartment",
+    "Photographs documented victims and dismemberment",
+    "Forensic examination identified remains belonging to multiple victims",
+    "Dahmer confessed to numerous killings following his arrest"
+  ],
+  "modus_operandi": "Dahmer approached primarily young men, lured or invited them to his residence using offers of money, companionship, photographs, or sexual encounters, incapacitated them with drugs, murdered them, and subsequently engaged in necrophilic and dismemberment-related behavior.",
+  "personality_disorder": "Multiple forensic experts provided differing diagnoses. Documented assessments included Schizotypal Personality Disorder, Borderline Personality Disorder, substance-use disorder, paraphilic disorders, and other severe personality features. One independent forensic psychiatrist described a severe mixed personality disorder including antisocial, obsessive-compulsive, sadistic, fetishistic, borderline, and necrophilic features.",
+  "common_traits": [
+    "Social manipulation",
+    "Extreme secrecy",
+    "Paraphilic behavior",
+    "Need for control over victims",
+    "Substance use",
+    "Preservation and concealment of victims' remains",
+    "Repetitive and ritualized offending"
+  ],
+  "summary": "American serial killer responsible for the murders of 17 people. His case is particularly significant for forensic psychology because several experts assessed him during his trial and reached different conclusions regarding his personality pathology, psychosis, paraphilia, and legal responsibility."
+}

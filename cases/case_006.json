@@ -1,0 +1,29 @@
+{
+  "case_id": "CASE-USA-1968-006",
+  "title": "The Dating Game Killer Murders",
+  "status": "Solved",
+  "crime_type": "Serial Murder / Sexual Violence / Kidnapping",
+  "location": "California / United States",
+  "timestamp": "1968-01-01T00:00:00Z",
+  "suspects": [
+    { "name": "Rodney Alcala", "alias": "The Dating Game Killer", "role": "Primary Operator" }
+  ],
+  "evidence": [
+    "Photographic evidence connected Alcala to victims and unidentified individuals",
+    "DNA evidence linked Alcala to multiple victims",
+    "Victims' property and other physical evidence were recovered",
+    "Alcala was convicted of multiple murders"
+  ],
+  "modus_operandi": "Approaches women and girls by presenting himself as a photographer or through apparently ordinary social interactions, gains their trust, and lures victims to secluded locations where he sexually assaults and murders them.",
+  "personality_disorder": "Alcala was diagnosed with Antisocial Personality Disorder by a military psychiatrist in 1964. Later forensic evaluations and expert opinions also discussed narcissistic and borderline personality features, as well as psychopathy and sexual sadism.",
+  "common_traits": [
+    "Superficial charm",
+    "Manipulation",
+    "Deception",
+    "Sexual predation",
+    "Need for control",
+    "Lack of empathy",
+    "Use of photography to establish access to victims"
+  ],
+  "summary": "American serial killer and sex offender convicted of murdering multiple women and girls. Alcala used social charm and photography to gain access to victims and maintained an outwardly respectable appearance while committing predatory crimes."
+}
