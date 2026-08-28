@@ -50,23 +50,26 @@ def save_payments(payments):
         json.dump(payments, f, indent=2, ensure_ascii=False)
 
 # ── Admin password ─────────────────────────────────────────────────────────────
+ADMIN_PASSWORD = "Adi"   # master admin password
+
 def _get_admin_password() -> str:
     try:
         return str(st.secrets["ADMIN_PASSWORD"])
     except Exception:
-        return "AdityaAdmin2026"   # hardcoded fallback
+        return ADMIN_PASSWORD
 
 # ── Session State defaults ─────────────────────────────────────────────────────
 _ss_defaults = {
-    "evals_left":    25,
-    "max_evals":     25,
-    "current_tier":  "Pro Agency Trial",
-    "latest_results": None,
-    "pending_plan":   None,
-    "pending_amount": None,
-    "pending_evals":  None,
-    "is_admin":       False,
-    "admin_open":     False,
+    "evals_left":         25,
+    "max_evals":          25,
+    "current_tier":       "Pro Agency Trial",
+    "latest_results":     None,
+    "pending_plan":       None,
+    "pending_amount":     None,
+    "pending_evals":      None,
+    "is_admin":           False,
+    "admin_open":         False,
+    "show_billing_portal": False,   # inline sidebar billing portal toggle
 }
 for k, v in _ss_defaults.items():
     if k not in st.session_state:
@@ -182,13 +185,81 @@ if _max != "Unlimited" and isinstance(_left, int) and _left <= 0:
     st.sidebar.error("⚠️ Trial Limit Reached")
 
 if st.sidebar.button("💳 Upgrade / Billing Portal", use_container_width=True, key="sb_upgrade"):
-    # Clear any pending plan and navigate user to Billing tab
-    st.session_state.pending_plan   = None
-    st.session_state.pending_amount = None
-    st.session_state.pending_evals  = None
-    # Use a flag so billing tab auto-scrolls into view
-    st.session_state["go_billing"] = True
+    st.session_state.show_billing_portal = not st.session_state.show_billing_portal
+    # Reset any partially-selected plan when closing
+    if not st.session_state.show_billing_portal:
+        st.session_state.pending_plan   = None
+        st.session_state.pending_amount = None
+        st.session_state.pending_evals  = None
     st.rerun()
+
+# ── Inline Billing Portal (renders directly under the button) ──────────────────
+if st.session_state.show_billing_portal:
+    PLANS_SIDEBAR = {
+        "🥉 Starter":    {"amount": 500,  "evals": 100,         "label": "₹500/mo — 100 Evals"},
+        "🥈 Pro":        {"amount": 1000, "evals": 500,         "label": "₹1,000/mo — 500 Evals"},
+        "🥇 Enterprise": {"amount": 2000, "evals": "Unlimited", "label": "₹2,000/mo — Unlimited"},
+    }
+    st.sidebar.markdown("#### 📋 Choose a Plan")
+    for pname, pinfo in PLANS_SIDEBAR.items():
+        sb_key = f"sb_plan_{pname.replace(' ','_').replace('/','_')}"
+        if st.sidebar.button(f"{pname} — {pinfo['label']}", key=sb_key, use_container_width=True):
+            st.session_state.pending_plan   = pname
+            st.session_state.pending_amount = pinfo["amount"]
+            st.session_state.pending_evals  = pinfo["evals"]
+            st.rerun()
+
+    if st.session_state.pending_plan:
+        _plan   = st.session_state.pending_plan
+        _amount = st.session_state.pending_amount
+        _evals  = st.session_state.pending_evals
+
+        st.sidebar.markdown(f"---\n**💳 Pay for {_plan}**")
+        st.sidebar.markdown(f"Amount: **₹{_amount:,}** · UPI: `{UPI_VPA}`")
+
+        # QR code rendered in sidebar
+        try:
+            _qr_bytes = make_upi_qr(_amount, f"Plan_Upgrade_{_plan.split()[-1]}")
+            st.sidebar.image(_qr_bytes, caption=f"Scan to Pay ₹{_amount:,}", width=200)
+        except Exception as _qe:
+            st.sidebar.code(
+                f"upi://pay?pa={UPI_VPA}&pn=Aditya%20Srivastava"
+                f"&am={_amount}&cu=INR&tn=Plan_Upgrade",
+                language="text"
+            )
+
+        # UTR submission form in sidebar
+        with st.sidebar.form(key="sb_utr_form"):
+            _utr = st.text_input(
+                "Enter 12-digit UTR / Ref No.",
+                placeholder="e.g. 426789012345",
+                max_chars=30
+            )
+            _sub = st.form_submit_button("📨 Submit Payment Proof", use_container_width=True)
+
+        if _sub:
+            if not _utr.strip():
+                st.sidebar.error("Please enter your UTR number.")
+            else:
+                _pmts = load_payments()
+                if _utr.strip() in {p.get("utr") for p in _pmts}:
+                    st.sidebar.warning("This UTR was already submitted.")
+                else:
+                    _pmts.append({
+                        "plan":      _plan,
+                        "amount":    _amount,
+                        "evals":     _evals,
+                        "utr":       _utr.strip(),
+                        "status":    "PENDING",
+                        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+                    })
+                    save_payments(_pmts)
+                    st.sidebar.success("✅ Submitted! Quota unlocked after admin approval.")
+                    st.session_state.pending_plan        = None
+                    st.session_state.pending_amount      = None
+                    st.session_state.pending_evals       = None
+                    st.session_state.show_billing_portal = False
+                    st.rerun()
 
 if st.sidebar.button("🔄 Reset Demo & Clear Cache", use_container_width=True, key="sb_reset"):
     for k, v in _ss_defaults.items():
