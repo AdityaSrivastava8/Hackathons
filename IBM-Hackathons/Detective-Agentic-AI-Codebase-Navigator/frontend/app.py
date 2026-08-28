@@ -384,7 +384,8 @@ st.sidebar.divider()
 st.sidebar.markdown(
     "**💬 Feedback & Suggestions**\n\n"
     "Found a bug? Want a new feature?\n\n"
-    "📧 [yeahboyadi@gmail.com](mailto:yeahboyadi@gmail.com)"
+    "📧 [yeahboyadi@gmail.com](mailto:yeahboyadi@gmail.com)  \n"
+    "📧 [akshat.v2166@gmail.com](mailto:akshat.v2166@gmail.com)"
 )
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -837,6 +838,19 @@ if tab_outreach is not None:
                     use_container_width=True,
                     key="dl_leads_csv"
                 )
+
+        if all_leads:
+            st.markdown("")
+            if st.button(
+                "🗑️ Clear All Leads (reset lead database)",
+                use_container_width=False,
+                key="btn_clear_leads",
+                type="secondary",
+                help="Wipes data/leads.json completely. Run a fresh scrape afterwards."
+            ):
+                save_leads([])
+                st.success("✅ Lead database cleared. Run a fresh scrape to repopulate.")
+                st.rerun()
 
         st.divider()
 

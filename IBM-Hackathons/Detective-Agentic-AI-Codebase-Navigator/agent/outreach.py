@@ -454,7 +454,8 @@ def scrape_leads_sync(keyword: str, location: str, max_results: int = 20) -> Lis
             break
 
     # ── Merge into leads.json ──────────────────────────────────────────────
-    existing      = load_leads()
+    # Drop any stale leads that have empty or missing emails before merging
+    existing      = [l for l in load_leads() if l.get("contact_email", "").strip()]
     existing_keys = {(l["agency_name"], l["location"]) for l in existing}
     merged        = existing[:]
     added: List[Dict] = []
