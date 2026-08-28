@@ -773,17 +773,7 @@ if tab_outreach is not None:
         max_results = st.slider("Max Leads to Scrape", min_value=5, max_value=50, value=15, key="scrape_max")
 
         if st.button("🚀 Start Lead Scraping", type="primary", use_container_width=True, key="btn_scrape"):
-            with st.spinner(f"Scraping Google Maps for '{search_query}' in '{target_region}'..."):
-                # Auto-install playwright browsers on cloud if missing
-                import subprocess
-                try:
-                    subprocess.run(
-                        ["playwright", "install", "chromium", "--with-deps"],
-                        check=True, capture_output=True, timeout=120
-                    )
-                except Exception:
-                    pass  # already installed or not available — scraper will surface the real error
-
+            with st.spinner(f"Searching for '{search_query}' in '{target_region}'..."):
                 new_leads = scrape_leads_sync(search_query, target_region, max_results)
                 if new_leads and "error" in new_leads[0]:
                     st.error(f"Scraping failed: {new_leads[0]['error']}")
