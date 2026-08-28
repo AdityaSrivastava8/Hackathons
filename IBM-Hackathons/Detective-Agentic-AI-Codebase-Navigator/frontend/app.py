@@ -880,37 +880,65 @@ if tab_outreach is not None:
             )
 
             if dispatch_btn:
-                if not app_password.strip():
-                    st.error("Please enter your Gmail App Password to send emails.")
+                pw = app_password.strip().replace(" ", "")
+                if not pw:
+                    st.error("❌ Please enter your Gmail App Password before dispatching.")
+                elif len(pw) != 16:
+                    st.error(
+                        f"❌ Gmail App Passwords are exactly 16 characters (you entered {len(pw)}). "
+                        "Go to Google Account → Security → 2-Step Verification → App Passwords to generate one."
+                    )
                 else:
                     progress_bar = st.progress(0, text="Initialising...")
                     log_area     = st.empty()
                     dispatch_log: list = []
 
-                    def update_progress(idx: int, total: int, agency: str, status: str) -> None:
+                    def update_progress(idx: int, total: int, agency: str, status: str, error: str = "") -> None:
                         pct  = int(idx / total * 100)
-                        icon = "✅" if status == "SENT" else "❌"
-                        dispatch_log.append(f"{icon} [{idx}/{total}] {agency} — {status}")
+                        if status == "SENT":
+                            icon = "✅"
+                            line = f"{icon} [{idx}/{total}] {agency} — SENT"
+                        elif status == "SKIPPED":
+                            icon = "⏭️"
+                            line = f"{icon} [{idx}/{total}] {agency} — SKIPPED (no valid email)"
+                        else:
+                            icon = "❌"
+                            err_short = (error[:120] + "…") if len(error) > 120 else error
+                            line = f"{icon} [{idx}/{total}] {agency} — FAILED: {err_short}"
+                        dispatch_log.append(line)
                         progress_bar.progress(pct, text=f"Sending {idx}/{total}…")
                         log_area.code("\n".join(dispatch_log), language="text")
 
                     results = send_cold_emails(
                         leads=selected_leads,
-                        app_password=app_password.strip(),
+                        app_password=pw,
                         subject_template=email_subject,
                         body_template=email_body,
                         delay_seconds=4,
                         progress_callback=update_progress,
                     )
 
-                    sent   = sum(1 for r in results if r["status"] == "SENT")
-                    failed = sum(1 for r in results if r["status"] == "FAILED")
-                    progress_bar.progress(100, text="Campaign complete!")
-                    st.success(f"Campaign finished — ✅ {sent} sent, ❌ {failed} failed.")
+                    # Check for init failure (bad password / auth error before any send)
+                    if results and results[0].get("status") == "INIT_FAIL":
+                        progress_bar.empty()
+                        st.error(
+                            f"❌ Could not connect to Gmail SMTP.\n\n"
+                            f"**Error:** {results[0].get('error', 'Unknown')}\n\n"
+                            "Make sure you are using a **Gmail App Password** (not your regular password). "
+                            "Google Account → Security → 2-Step Verification → App Passwords."
+                        )
+                    else:
+                        sent    = sum(1 for r in results if r["status"] == "SENT")
+                        failed  = sum(1 for r in results if r["status"] == "FAILED")
+                        skipped = sum(1 for r in results if r["status"] == "SKIPPED")
+                        progress_bar.progress(100, text="Campaign complete!")
+                        st.success(
+                            f"Campaign finished — ✅ {sent} sent, ❌ {failed} failed, ⏭️ {skipped} skipped."
+                        )
 
-                    contacted_names = {r["agency_name"] for r in results if r["status"] == "SENT"}
-                    updated = load_leads()
-                    for lead in updated:
-                        if lead.get("agency_name") in contacted_names:
-                            lead["status"] = "Contacted"
-                    save_leads(updated)
+                        contacted_names = {r["agency_name"] for r in results if r["status"] == "SENT"}
+                        updated = load_leads()
+                        for lead in updated:
+                            if lead.get("agency_name") in contacted_names:
+                                lead["status"] = "Contacted"
+                        save_leads(updated)

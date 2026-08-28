@@ -505,7 +505,7 @@ def send_cold_emails(
         results.append(result)
 
         if progress_callback:
-            progress_callback(idx, total, agency, result["status"])
+            progress_callback(idx, total, agency, result["status"], result.get("error", ""))
 
         if idx < total:
             time.sleep(delay_seconds)
