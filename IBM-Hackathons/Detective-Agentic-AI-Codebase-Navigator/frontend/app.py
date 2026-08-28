@@ -348,7 +348,7 @@ with tab_billing:
             else:
                 st.markdown("* Unlimited Evaluations\n* Private Vector Database\n* Dedicated API & Priority Support")
 
-            btn_key = f"plan_select_{plan_name.replace(' ','_')}_{int(time.time()*1000) % 100000}"
+            btn_key = f"plan_select_{plan_name.replace(' ','_').replace('/', '_')}"
             if st.button(f"Select {plan_name}", key=btn_key, use_container_width=True):
                 st.session_state.pending_plan   = plan_name
                 st.session_state.pending_amount = plan_info["amount"]
@@ -501,7 +501,7 @@ with tab_outreach:
                 file_name="agency_leads.csv",
                 mime="text/csv",
                 use_container_width=True,
-                key=f"dl_leads_{int(time.time()) % 100000}"
+                key="dl_leads_csv"
             )
 
     st.divider()
