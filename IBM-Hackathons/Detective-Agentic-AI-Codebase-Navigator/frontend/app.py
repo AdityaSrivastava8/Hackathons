@@ -75,8 +75,9 @@ agent = load_agent()
 UPI_VPA    = "adityasriv@ptyes"
 UPI_NAME   = "Aditya Srivastava"
 
-def make_upi_qr(amount: int, plan_ref: str) -> "PIL.Image.Image":
+def make_upi_qr(amount: int, plan_ref: str):
     import qrcode
+    import qrcode.constants
     upi_uri = (
         f"upi://pay?pa={UPI_VPA}&pn={UPI_NAME.replace(' ', '%20')}"
         f"&am={amount}&cu=INR&tn={plan_ref.replace(' ', '_')}"
