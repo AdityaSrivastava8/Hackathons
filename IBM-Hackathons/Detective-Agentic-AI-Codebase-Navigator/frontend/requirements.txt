@@ -1,6 +1,9 @@
-streamlit
-chromadb
-fpdf2
-pandas
-playwright
-yagmail
+streamlit==1.62.0
+chromadb==1.5.9
+fpdf2==2.8.8
+pandas>=2.0.0
+segno>=1.6.1
+qrcode[pil]>=7.4.2
+Pillow>=10.0.0
+playwright>=1.44.0
+yagmail>=0.15.293
