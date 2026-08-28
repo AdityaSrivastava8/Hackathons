@@ -19,6 +19,19 @@ from agent.outreach import (
     COLD_EMAIL_SUBJECT,
     COLD_EMAIL_BODY,
 )
+from agent.billing import (
+    submit_payment,
+    submit_topup,
+    approve_payment,
+    flag_partial,
+    get_pending_payments,
+    get_partial_by_utr,
+    STATUS_PENDING,
+    STATUS_APPROVED,
+    STATUS_PARTIAL,
+    STATUS_TOPUP_DONE,
+    STATUS_FLAGGED,
+)
 
 # ── Page config (MUST be first Streamlit call) ─────────────────────────────────
 st.set_page_config(
@@ -60,16 +73,17 @@ def _get_admin_password() -> str:
 
 # ── Session State defaults ─────────────────────────────────────────────────────
 _ss_defaults = {
-    "evals_left":         25,
-    "max_evals":          25,
-    "current_tier":       "Pro Agency Trial",
-    "latest_results":     None,
-    "pending_plan":       None,
-    "pending_amount":     None,
-    "pending_evals":      None,
-    "is_admin":           False,
-    "admin_open":         False,
-    "show_billing_portal": False,   # inline sidebar billing portal toggle
+    "evals_left":          25,
+    "max_evals":           25,
+    "current_tier":        "Pro Agency Trial",
+    "latest_results":      None,
+    "pending_plan":        None,
+    "pending_amount":      None,
+    "pending_evals":       None,
+    "is_admin":            False,
+    "admin_open":          False,
+    "show_billing_portal": False,
+    "partial_utr":         None,   # UTR of a partial payment waiting for top-up
 }
 for k, v in _ss_defaults.items():
     if k not in st.session_state:
@@ -228,38 +242,54 @@ if st.session_state.show_billing_portal:
                 language="text"
             )
 
-        # UTR submission form in sidebar
+        # UTR + Amount submission form in sidebar
         with st.sidebar.form(key="sb_utr_form"):
             _utr = st.text_input(
-                "Enter 12-digit UTR / Ref No.",
+                "UTR / Transaction Ref No.",
                 placeholder="e.g. 426789012345",
                 max_chars=30
+            )
+            _paid_str = st.text_input(
+                "Amount You Paid (₹)",
+                placeholder=f"e.g. {_amount}",
+                max_chars=10
             )
             _sub = st.form_submit_button("📨 Submit Payment Proof", use_container_width=True)
 
         if _sub:
             if not _utr.strip():
                 st.sidebar.error("Please enter your UTR number.")
+            elif not _paid_str.strip():
+                st.sidebar.error("Please enter the amount you paid.")
             else:
-                _pmts = load_payments()
-                if _utr.strip() in {p.get("utr") for p in _pmts}:
-                    st.sidebar.warning("This UTR was already submitted.")
-                else:
-                    _pmts.append({
-                        "plan":      _plan,
-                        "amount":    _amount,
-                        "evals":     _evals,
-                        "utr":       _utr.strip(),
-                        "status":    "PENDING",
-                        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
-                    })
-                    save_payments(_pmts)
-                    st.sidebar.success("✅ Submitted! Quota unlocked after admin approval.")
-                    st.session_state.pending_plan        = None
-                    st.session_state.pending_amount      = None
-                    st.session_state.pending_evals       = None
-                    st.session_state.show_billing_portal = False
-                    st.rerun()
+                try:
+                    _paid_val = float(_paid_str.replace(",", "").strip())
+                except ValueError:
+                    st.sidebar.error("Invalid amount — enter a number.")
+                    _paid_val = None
+
+                if _paid_val is not None:
+                    _status, _msg, _remaining = submit_payment(
+                        plan=_plan,
+                        required_amount=float(_amount),
+                        amount_paid=_paid_val,
+                        evals=_evals,
+                        utr=_utr.strip(),
+                    )
+                    if _status == STATUS_FLAGGED:
+                        st.sidebar.error(_msg)
+                    elif _status == STATUS_PARTIAL:
+                        st.sidebar.warning(_msg)
+                        st.session_state.partial_utr = _utr.strip()
+                        st.session_state.show_billing_portal = False
+                        st.rerun()
+                    else:
+                        st.sidebar.success("✅ Submitted! Quota will be unlocked after admin verification.")
+                        st.session_state.pending_plan        = None
+                        st.session_state.pending_amount      = None
+                        st.session_state.pending_evals       = None
+                        st.session_state.show_billing_portal = False
+                        st.rerun()
 
 if st.sidebar.button("🔄 Reset Demo & Clear Cache", use_container_width=True, key="sb_reset"):
     for k, v in _ss_defaults.items():
@@ -298,34 +328,64 @@ if st.session_state.is_admin:
         st.rerun()
 
     if st.session_state.admin_open:
-        st.sidebar.markdown("#### Pending Payment Submissions")
-        payments = load_payments()
-        pending  = [p for p in payments if p.get("status") == "PENDING"]
-        if not pending:
+        st.sidebar.markdown("#### 🧾 All Pending Submissions")
+        _all_pending = get_pending_payments()
+        if not _all_pending:
             st.sidebar.info("No pending submissions.")
         else:
-            for i, pmt in enumerate(pending):
-                with st.sidebar.expander(f"#{i+1} {pmt.get('plan')} — UTR: {pmt.get('utr')}"):
-                    st.write(f"**Plan:** {pmt.get('plan')}")
-                    st.write(f"**Amount:** ₹{pmt.get('amount')}")
-                    st.write(f"**Evals:** {pmt.get('evals')}")
-                    st.write(f"**UTR:** {pmt.get('utr')}")
+            for i, pmt in enumerate(_all_pending):
+                _putr      = pmt.get("utr", "")
+                _preq      = pmt.get("required_amount", pmt.get("amount", 0))
+                _ppaid     = pmt.get("amount_paid",     pmt.get("amount", 0))
+                _premain   = pmt.get("remaining_balance", 0)
+                _pstatus   = pmt.get("status", "")
+                _pevals    = pmt.get("evals", "?")
+                _pplan     = pmt.get("plan", "?")
+
+                _label = f"#{i+1} {_pplan} — UTR: {_putr}"
+                with st.sidebar.expander(_label):
+                    st.write(f"**Plan:** {_pplan}")
+                    st.write(f"**Required:** ₹{_preq:,}")
+                    st.write(f"**Paid:** ₹{_ppaid:,}")
+                    if _premain:
+                        st.write(f"**Deficit:** ₹{_premain:,}")
+                    st.write(f"**Status:** {_pstatus}")
+                    st.write(f"**UTR:** `{_putr}`")
                     st.write(f"**Submitted:** {pmt.get('timestamp','')}")
-                    if st.button("✅ Approve & Unlock Quota", key=f"approve_{i}_{pmt.get('utr')}"):
-                        evals = pmt.get("evals")
-                        if evals == "Unlimited":
-                            st.session_state.evals_left = "Unlimited"
-                            st.session_state.max_evals  = "Unlimited"
-                        else:
-                            st.session_state.evals_left = int(evals)
-                            st.session_state.max_evals  = int(evals)
-                        st.session_state.current_tier = pmt.get("plan", "")
-                        for p in payments:
-                            if p.get("utr") == pmt.get("utr"):
-                                p["status"] = "APPROVED"
-                        save_payments(payments)
-                        st.sidebar.success(f"Quota unlocked for UTR {pmt.get('utr')}!")
-                        st.rerun()
+                    if pmt.get("topup_utrs"):
+                        st.write(f"**Top-up UTRs:** {', '.join(pmt['topup_utrs'])}")
+
+                    _acol, _fcol = st.columns(2)
+                    # Approve button
+                    if _acol.button("✅ Approve", key=f"pay_verify_{_putr}_approve"):
+                        if approve_payment(_putr):
+                            evals = _pevals
+                            if evals == "Unlimited":
+                                st.session_state.evals_left = "Unlimited"
+                                st.session_state.max_evals  = "Unlimited"
+                            else:
+                                try:
+                                    st.session_state.evals_left = int(evals)
+                                    st.session_state.max_evals  = int(evals)
+                                except Exception:
+                                    pass
+                            st.session_state.current_tier = _pplan
+                            st.sidebar.success(f"✅ Quota unlocked — {_putr}")
+                            st.rerun()
+                    # Flag partial button
+                    if _fcol.button("⚠️ Flag Partial", key=f"pay_verify_{_putr}_flag"):
+                        if flag_partial(_putr):
+                            st.session_state.partial_utr = _putr
+                            st.sidebar.warning(f"Flagged as partial — user will be prompted for top-up.")
+                            st.rerun()
+
+# ── Contact / Feedback (always visible at bottom of sidebar) ──────────────────
+st.sidebar.divider()
+st.sidebar.markdown(
+    "**💬 Feedback & Suggestions**\n\n"
+    "Found a bug? Want a new feature?\n\n"
+    "📧 [yeahboyadi@gmail.com](mailto:yeahboyadi@gmail.com)"
+)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # MAIN AREA — Role-based tab list
@@ -334,15 +394,78 @@ st.title("🕵️‍♂️ Detective Agentic AI & RAG Profiling System")
 st.markdown("Automated criminal pattern recognition, risk evaluation, and precedent retrieval engine.")
 st.divider()
 
+# ── Partial Payment Alert Banner (shown above tabs if active) ─────────────────
+if st.session_state.partial_utr:
+    _prec = get_partial_by_utr(st.session_state.partial_utr)
+    if _prec:
+        _p_paid     = _prec.get("amount_paid", 0)
+        _p_req      = _prec.get("required_amount", 0)
+        _p_remain   = _prec.get("remaining_balance", 0)
+        _p_plan     = _prec.get("plan", "")
+        _p_utr      = _prec.get("utr", "")
+        _p_evals    = _prec.get("evals", "")
+
+        st.warning(
+            f"⚠️ **Payment Incomplete** — You paid ₹{_p_paid:,.0f} out of "
+            f"₹{_p_req:,.0f} for the **{_p_plan}** plan. "
+            f"Please pay the remaining balance of **₹{_p_remain:,.0f}** to unlock your evaluations."
+        )
+
+        _tp_qr_col, _tp_inst_col = st.columns([1, 2])
+        with _tp_qr_col:
+            try:
+                _tp_qr = make_upi_qr(int(_p_remain), f"TopUp_{_p_plan.split()[-1]}")
+                st.image(_tp_qr, caption=f"Scan to Pay ₹{_p_remain:,.0f} (balance)", width=200)
+            except Exception:
+                st.code(
+                    f"upi://pay?pa={UPI_VPA}&pn=Aditya%20Srivastava"
+                    f"&am={int(_p_remain)}&cu=INR&tn=TopUp_Balance",
+                    language="text"
+                )
+
+        with _tp_inst_col:
+            st.markdown(
+                f"**UPI ID:** `{UPI_VPA}`  \n"
+                f"**Amount:** ₹{_p_remain:,.0f}  \n"
+                f"**Payee:** Aditya Srivastava"
+            )
+            with st.form(key=f"topup_form_{_p_utr}"):
+                _topup_utr = st.text_input(
+                    "Enter Top-Up UTR / Transaction Ref",
+                    placeholder="New 12-digit UTR after paying balance",
+                    max_chars=30
+                )
+                _topup_sub = st.form_submit_button(
+                    "📨 Submit Top-Up Proof", use_container_width=True, type="primary"
+                )
+
+            if _topup_sub:
+                if not _topup_utr.strip():
+                    st.error("Please enter your top-up UTR.")
+                else:
+                    _ts, _tm = submit_topup(_topup_utr.strip(), _p_utr)
+                    if "✅" in _tm:
+                        st.success(_tm)
+                        st.session_state.partial_utr = None
+                        st.rerun()
+                    else:
+                        st.error(_tm)
+
+        st.divider()
+    else:
+        # Record no longer partial (admin approved) — clear flag
+        st.session_state.partial_utr = None
+
 # Build tab list dynamically based on auth state
-_tab_labels = ["🔍 Profiling Dashboard", "💳 Billing & Plans"]
+_tab_labels = ["🔍 Profiling Dashboard", "💳 Billing & Plans", "📬 Contact & Feedback"]
 if st.session_state.is_admin:
     _tab_labels.append("📢 B2B Agency Acquisition")
 
 _tabs = st.tabs(_tab_labels)
-tab_profile = _tabs[0]
-tab_billing = _tabs[1]
-tab_outreach = _tabs[2] if st.session_state.is_admin else None
+tab_profile  = _tabs[0]
+tab_billing  = _tabs[1]
+tab_contact  = _tabs[2]
+tab_outreach = _tabs[3] if st.session_state.is_admin else None
 
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 1 — PROFILING DASHBOARD
@@ -513,42 +636,114 @@ with tab_billing:
             """)
 
             with st.form(key=f"utr_form_{plan.replace(' ','_').replace('/','_')}"):
-                utr_input = st.text_input(
+                utr_input  = st.text_input(
                     "Enter UTR / Transaction Reference ID",
                     placeholder="e.g. 426789012345",
                     max_chars=30
+                )
+                paid_input = st.text_input(
+                    "Amount You Paid (₹)",
+                    placeholder=f"e.g. {amount}",
+                    max_chars=10
                 )
                 submit_utr = st.form_submit_button("📨 Submit Payment Proof", use_container_width=True)
 
             if submit_utr:
                 if not utr_input.strip():
                     st.error("Please enter your UTR / Transaction Reference.")
+                elif not paid_input.strip():
+                    st.error("Please enter the amount you paid.")
                 else:
-                    payments     = load_payments()
-                    existing_utrs = {p.get("utr") for p in payments}
-                    if utr_input.strip() in existing_utrs:
-                        st.warning("This UTR has already been submitted.")
-                    else:
-                        payments.append({
-                            "plan":      plan,
-                            "amount":    amount,
-                            "evals":     evals,
-                            "utr":       utr_input.strip(),
-                            "status":    "PENDING",
-                            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
-                        })
-                        save_payments(payments)
-                        st.success(
-                            "✅ Payment proof submitted! Your quota will be unlocked after admin verification. "
-                            "You'll see the updated plan in the sidebar."
+                    try:
+                        paid_val = float(paid_input.replace(",", "").strip())
+                    except ValueError:
+                        st.error("Invalid amount — enter a number.")
+                        paid_val = None
+
+                    if paid_val is not None:
+                        _s, _m, _r = submit_payment(
+                            plan=plan,
+                            required_amount=float(amount),
+                            amount_paid=paid_val,
+                            evals=evals,
+                            utr=utr_input.strip(),
                         )
-                        st.session_state.pending_plan   = None
-                        st.session_state.pending_amount = None
-                        st.session_state.pending_evals  = None
-                        st.rerun()
+                        if _s == STATUS_FLAGGED:
+                            st.error(_m)
+                        elif _s == STATUS_PARTIAL:
+                            st.warning(_m)
+                            st.session_state.partial_utr    = utr_input.strip()
+                            st.session_state.pending_plan   = None
+                            st.session_state.pending_amount = None
+                            st.session_state.pending_evals  = None
+                            st.rerun()
+                        else:
+                            st.success(
+                                "✅ Payment proof submitted! "
+                                "Your quota will be unlocked after admin verification."
+                            )
+                            st.session_state.pending_plan   = None
+                            st.session_state.pending_amount = None
+                            st.session_state.pending_evals  = None
+                            st.rerun()
 
 # ══════════════════════════════════════════════════════════════════════════════
-# TAB 3 — B2B AGENCY ACQUISITION  (ADMIN ONLY)
+# TAB 3 — CONTACT & FEEDBACK
+# ══════════════════════════════════════════════════════════════════════════════
+with tab_contact:
+    st.subheader("📬 Contact, Feedback & Feature Requests")
+    st.markdown(
+        "Have a question, found a bug, or want to suggest a new feature? "
+        "Reach out directly — every message is read personally."
+    )
+    st.divider()
+
+    c1, c2 = st.columns(2)
+
+    with c1:
+        st.markdown("### 📧 Direct Email")
+        st.markdown(
+            "**Aditya Srivastava**  \n"
+            "Lead Developer & Founder  \n"
+            "📩 [yeahboyadi@gmail.com](mailto:yeahboyadi@gmail.com)"
+        )
+        st.markdown("---")
+        st.markdown("### 🐛 Bug Reports")
+        st.markdown(
+            "Please include:  \n"
+            "- What you were doing  \n"
+            "- What error / unexpected behaviour appeared  \n"
+            "- Screenshot if possible  \n\n"
+            "Send to **[yeahboyadi@gmail.com](mailto:yeahboyadi@gmail.com)** "
+            "with subject line: `[BUG] Detective AI — <short description>`"
+        )
+
+    with c2:
+        st.markdown("### 💡 Suggest a Feature")
+        st.markdown(
+            "Ideas for new capabilities are welcome:  \n"
+            "- New case-matching algorithms  \n"
+            "- Additional report formats  \n"
+            "- Integrations (WhatsApp alerts, CRM sync, etc.)  \n\n"
+            "Send to **[yeahboyadi@gmail.com](mailto:yeahboyadi@gmail.com)** "
+            "with subject line: `[FEATURE REQUEST] <your idea>`"
+        )
+        st.markdown("---")
+        st.markdown("### 🔒 Privacy & Data")
+        st.markdown(
+            "All suspect profiling data is processed locally in your session.  \n"
+            "No case data is stored on our servers without your explicit upload.  \n"
+            "Payments are verified manually — we never store card details."
+        )
+
+    st.divider()
+    st.info(
+        "⏱️ **Response time:** Typically within 24 hours on weekdays.  \n"
+        "🌐 **Platform:** https://detective-ai.streamlit.app"
+    )
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 4 — B2B AGENCY ACQUISITION  (ADMIN ONLY)
 # ══════════════════════════════════════════════════════════════════════════════
 if tab_outreach is not None:
     with tab_outreach:
