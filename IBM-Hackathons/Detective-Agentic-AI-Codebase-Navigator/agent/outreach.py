@@ -6,8 +6,47 @@ Autonomous B2B Lead Scraper (Playwright) + Cold Email Engine (yagmail)
 import asyncio
 import json
 import os
+import subprocess
+import sys
 import time
 from typing import List, Dict
+
+def _ensure_playwright_browsers() -> None:
+    """
+    Silently install Chromium binaries if they are missing.
+    Playwright raises an error mentioning 'Executable doesn't exist' or
+    'please run playwright install' when the binary is absent — we catch
+    that at launch time, but it's cheaper to pre-check here once per
+    process by running `playwright install chromium --with-deps`.
+    Only runs when the binary cache directory is absent or empty.
+    """
+    try:
+        # Fast path: check if chromium is already available
+        import playwright._impl._driver as _drv  # type: ignore
+        cache_base = os.path.join(os.path.expanduser("~"), ".cache", "ms-playwright")
+        has_chrome = any(
+            "chromium" in d.lower()
+            for d in os.listdir(cache_base)
+        ) if os.path.isdir(cache_base) else False
+
+        if not has_chrome:
+            subprocess.run(
+                [sys.executable, "-m", "playwright", "install", "chromium", "--with-deps"],
+                check=False,
+                capture_output=True,
+                timeout=180,
+            )
+    except Exception:
+        # If the check itself fails, try installing unconditionally
+        try:
+            subprocess.run(
+                [sys.executable, "-m", "playwright", "install", "chromium"],
+                check=False,
+                capture_output=True,
+                timeout=180,
+            )
+        except Exception:
+            pass  # scraper will surface the real error on launch
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data"))
@@ -66,8 +105,26 @@ async def _scrape_google_maps(keyword: str, location: str, max_results: int = 20
     query = f"{keyword} in {location}"
     url = f"https://www.google.com/maps/search/{query.replace(' ', '+')}"
 
+    # ── Auto-install Chromium if missing ──────────────────────────────────
+    _ensure_playwright_browsers()
+
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
+        # Try launch; if binary still missing, run installer and retry once
+        try:
+            browser = await p.chromium.launch(headless=True)
+        except Exception as launch_err:
+            err_str = str(launch_err).lower()
+            if "executable" in err_str or "playwright install" in err_str:
+                subprocess.run(
+                    [sys.executable, "-m", "playwright", "install", "chromium", "--with-deps"],
+                    check=False,
+                    capture_output=True,
+                    timeout=180,
+                )
+                browser = await p.chromium.launch(headless=True)
+            else:
+                raise
+
         page = await browser.new_page()
         try:
             await page.goto(url, timeout=30000)
