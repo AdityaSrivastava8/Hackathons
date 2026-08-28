@@ -1,12 +1,22 @@
 import os
 import json
 import chromadb
+from chromadb.config import Settings
 from typing import List, Dict, Any
 
 class CaseRetriever:
     def __init__(self, cases_dir: str = "cases", db_path: str = "./chroma_db"):
         self.cases_dir = cases_dir
-        self.client = chromadb.PersistentClient(path=db_path)
+        # Compatible with chromadb 0.4.x (Streamlit Cloud safe)
+        try:
+            self.client = chromadb.Client(Settings(
+                chroma_db_impl="duckdb+parquet",
+                persist_directory=db_path,
+                anonymized_telemetry=False
+            ))
+        except Exception:
+            # Fallback for chromadb 1.x if ever upgraded
+            self.client = chromadb.PersistentClient(path=db_path)
         self.collection = self.client.get_or_create_collection(name="criminal_cases")
         
         try:
@@ -54,7 +64,14 @@ class CaseRetriever:
     def search_similar_cases(self, suspect_query: str, top_k: int = 3) -> List[Dict[str, Any]]:
         # Guard clause in case _init_ was bypassed by Streamlit caching
         if not hasattr(self, 'client') or self.client is None:
-            self.client = chromadb.PersistentClient(path="./chroma_db")
+            try:
+                self.client = chromadb.Client(Settings(
+                    chroma_db_impl="duckdb+parquet",
+                    persist_directory="./chroma_db",
+                    anonymized_telemetry=False
+                ))
+            except Exception:
+                self.client = chromadb.PersistentClient(path="./chroma_db")
         if not hasattr(self, 'collection') or self.collection is None:
             self.collection = self.client.get_or_create_collection(name="criminal_cases")
             
