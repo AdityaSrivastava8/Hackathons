@@ -797,8 +797,7 @@ if tab_outreach is not None:
             st.warning(
                 f"⚠️ **{generated_count} lead(s) have auto-generated placeholder emails** "
                 f"(source: *Generated (Verify Manually)*). "
-                "These will be **skipped automatically** during email dispatch to prevent bounces. "
-                "Replace their `contact_email` with a real address before dispatching."
+                "**Edit their `contact_email` in the table below, then click 💾 Save Lead Edits before dispatching.**"
             )
 
         if not all_leads:
@@ -859,6 +858,24 @@ if tab_outreach is not None:
 
             selected_leads = [all_leads[i] for i in selected_indices]
             st.markdown(f"**{len(selected_leads)} lead(s) selected**")
+
+            # ── Pre-dispatch email preview ─────────────────────────────────────
+            if selected_leads:
+                unverified = [l for l in selected_leads if l.get("source", "") == "Generated (Verify Manually)"]
+                if unverified:
+                    st.error(
+                        f"🚫 **{len(unverified)} of your selected leads have placeholder emails** "
+                        f"(auto-generated, not real). Sending to these will bounce.  \n"
+                        "**Fix:** scroll up to the lead table → edit the `contact_email` column → click 💾 Save Lead Edits → then come back and dispatch."
+                    )
+                    with st.expander("📋 Show selected leads & their emails"):
+                        for l in selected_leads:
+                            is_fake = l.get("source", "") == "Generated (Verify Manually)"
+                            badge = "⚠️ PLACEHOLDER" if is_fake else "✅ Real"
+                            st.markdown(
+                                f"**{l.get('agency_name','?')}** — "
+                                f"`{l.get('contact_email','(none)')}` — {badge}"
+                            )
 
             st.markdown("---")
             st.markdown("**Email Template Editor**")
