@@ -491,8 +491,12 @@ def send_cold_emails(
         location  = lead.get("location", "your region")
         recipient = lead.get("contact_email", "")
 
+        is_generated = lead.get("source", "") == "Generated (Verify Manually)"
         if not recipient or "@" not in recipient:
             result = {"agency_name": agency, "status": "SKIPPED", "error": "No valid email"}
+        elif is_generated:
+            result = {"agency_name": agency, "recipient": recipient, "status": "SKIPPED",
+                      "error": "Auto-generated placeholder email — verify manually before sending"}
         else:
             subject = subject_template.format(agency_name=agency, location=location)
             body    = body_template.format(agency_name=agency, location=location)

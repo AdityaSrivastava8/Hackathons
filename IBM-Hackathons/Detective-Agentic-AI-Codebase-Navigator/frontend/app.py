@@ -701,11 +701,16 @@ with tab_contact:
     c1, c2 = st.columns(2)
 
     with c1:
-        st.markdown("### 📧 Direct Email")
+        st.markdown("### 📧 Founders — Direct Contact")
         st.markdown(
             "**Aditya Srivastava**  \n"
             "Lead Developer & Founder  \n"
             "📩 [yeahboyadi@gmail.com](mailto:yeahboyadi@gmail.com)"
+        )
+        st.markdown(
+            "**Akshat Verma**  \n"
+            "Co-Founder  \n"
+            "📩 [akshat.v2166@gmail.com](mailto:akshat.v2166@gmail.com)"
         )
         st.markdown("---")
         st.markdown("### 🐛 Bug Reports")
@@ -715,6 +720,7 @@ with tab_contact:
             "- What error / unexpected behaviour appeared  \n"
             "- Screenshot if possible  \n\n"
             "Send to **[yeahboyadi@gmail.com](mailto:yeahboyadi@gmail.com)** "
+            "or **[akshat.v2166@gmail.com](mailto:akshat.v2166@gmail.com)** "
             "with subject line: `[BUG] Detective AI — <short description>`"
         )
 
@@ -726,6 +732,7 @@ with tab_contact:
             "- Additional report formats  \n"
             "- Integrations (WhatsApp alerts, CRM sync, etc.)  \n\n"
             "Send to **[yeahboyadi@gmail.com](mailto:yeahboyadi@gmail.com)** "
+            "or **[akshat.v2166@gmail.com](mailto:akshat.v2166@gmail.com)** "
             "with subject line: `[FEATURE REQUEST] <your idea>`"
         )
         st.markdown("---")
@@ -784,6 +791,15 @@ if tab_outreach is not None:
         st.subheader("📋 Current Lead Database")
 
         all_leads = load_leads()
+
+        generated_count = sum(1 for l in all_leads if l.get("source", "") == "Generated (Verify Manually)")
+        if generated_count:
+            st.warning(
+                f"⚠️ **{generated_count} lead(s) have auto-generated placeholder emails** "
+                f"(source: *Generated (Verify Manually)*). "
+                "These will be **skipped automatically** during email dispatch to prevent bounces. "
+                "Replace their `contact_email` with a real address before dispatching."
+            )
 
         if not all_leads:
             st.info("No leads yet. Run a scrape above or manually add leads below.")
