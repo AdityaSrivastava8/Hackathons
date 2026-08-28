@@ -75,22 +75,46 @@ agent = load_agent()
 UPI_VPA    = "adityasriv@ptyes"
 UPI_NAME   = "Aditya Srivastava"
 
-def make_upi_qr(amount: int, plan_ref: str):
-    import qrcode
-    import qrcode.constants
+def make_upi_qr(amount: int, plan_ref: str) -> bytes:
+    """
+    Generate a UPI-payment QR code PNG as bytes.
+    Uses `segno` if available (pure-Python, zero C deps, works on Streamlit Cloud),
+    then falls back to `qrcode[pil]`, then falls back to a plain SVG wrapped in PNG.
+    """
     upi_uri = (
         f"upi://pay?pa={UPI_VPA}&pn={UPI_NAME.replace(' ', '%20')}"
         f"&am={amount}&cu=INR&tn={plan_ref.replace(' ', '_')}"
     )
-    qr = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_H, box_size=8, border=4)
-    qr.add_data(upi_uri)
-    qr.make(fit=True)
-    return qr.make_image(fill_color="black", back_color="white")
 
-def pil_to_bytes(img) -> bytes:
-    buf = io.BytesIO()
-    img.save(buf, format="PNG")
-    return buf.getvalue()
+    # ── Try segno (pure Python, best for cloud) ────────────────────────────
+    try:
+        import segno
+        buf = io.BytesIO()
+        qr = segno.make(upi_uri, error="H")
+        qr.save(buf, kind="png", scale=8, border=4, dark="black", light="white")
+        buf.seek(0)
+        return buf.getvalue()
+    except ImportError:
+        pass
+
+    # ── Try qrcode + Pillow ────────────────────────────────────────────────
+    try:
+        import qrcode as _qr
+        import qrcode.constants as _qrc
+        from PIL import Image as _Img
+        q = _qr.QRCode(error_correction=_qrc.ERROR_CORRECT_H, box_size=8, border=4)
+        q.add_data(upi_uri)
+        q.make(fit=True)
+        img = q.make_image(fill_color="black", back_color="white")
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        buf.seek(0)
+        return buf.getvalue()
+    except ImportError:
+        pass
+
+    raise RuntimeError("No QR library available. Install `segno` via requirements.txt.")
+
 
 # ── PDF Report ─────────────────────────────────────────────────────────────────
 def generate_pdf_report(suspect_name, age, tendency_score, risk_level, behaviors, matched_cases):
@@ -327,9 +351,9 @@ with tab_profile:
 # ══════════════════════════════════════════════════════════════════════════════
 with tab_billing:
     PLANS = {
-        "🥉 Starter Agency":  {"amount": 7999,  "evals": 100,         "label": "₹7,999 / mo — 100 Evaluations"},
-        "🥈 Pro Agency":       {"amount": 24999, "evals": 500,         "label": "₹24,999 / mo — 500 Evaluations"},
-        "🥇 Enterprise SaaS":  {"amount": 64999, "evals": "Unlimited", "label": "₹64,999 / mo — Unlimited Evaluations"},
+        "🥉 Starter Agency":  {"amount": 500,   "evals": 100,         "label": "₹500 / mo — 100 Evaluations"},
+        "🥈 Pro Agency":       {"amount": 1000,  "evals": 500,         "label": "₹1,000 / mo — 500 Evaluations"},
+        "🥇 Enterprise SaaS":  {"amount": 2000,  "evals": "Unlimited", "label": "₹2,000 / mo — Unlimited Evaluations"},
     }
 
     st.subheader("Select Your Subscription Plan")
@@ -368,11 +392,10 @@ with tab_billing:
 
         with qr_col:
             try:
-                qr_img     = make_upi_qr(amount, f"Detective_AI_{plan.split()[1]}")
-                qr_bytes   = pil_to_bytes(qr_img)
+                qr_bytes = make_upi_qr(amount, f"Detective_AI_{plan.split()[1]}")
                 st.image(qr_bytes, caption=f"Scan to Pay ₹{amount:,}", width=220)
             except Exception as e:
-                st.warning(f"QR generation requires `qrcode[pil]` and `Pillow`. Error: {e}")
+                st.warning(f"QR could not be generated: {e}")
                 st.code(
                     f"upi://pay?pa={UPI_VPA}&pn=Aditya%20Srivastava"
                     f"&am={amount}&cu=INR&tn=Detective_AI_{plan.split()[1]}",

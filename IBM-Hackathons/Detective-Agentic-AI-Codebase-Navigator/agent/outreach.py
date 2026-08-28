@@ -108,18 +108,18 @@ async def _scrape_google_maps(keyword: str, location: str, max_results: int = 20
 def scrape_leads_sync(keyword: str, location: str, max_results: int = 20) -> List[Dict]:
     """
     Synchronous wrapper around the async scraper.
-    Returns a list of lead dicts and also merges+saves to leads.json.
+    Streamlit's ScriptRunner thread has NO event loop, so we always
+    spin up a dedicated thread and call asyncio.run() inside it.
     """
+    import concurrent.futures
+
+    def _run() -> List[Dict]:
+        return asyncio.run(_scrape_google_maps(keyword, location, max_results))
+
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            # Inside Streamlit's event loop — use a new thread loop
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-                future = pool.submit(asyncio.run, _scrape_google_maps(keyword, location, max_results))
-                new_leads = future.result(timeout=120)
-        else:
-            new_leads = loop.run_until_complete(_scrape_google_maps(keyword, location, max_results))
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(_run)
+            new_leads = future.result(timeout=120)
     except Exception as e:
         return [{"error": str(e)}]
 
