@@ -1,6 +1,5 @@
-streamlit==1.41.0
-chromadb==0.4.24
-fpdf2==2.8.3
+streamlit>=1.32.0
+fpdf2>=2.7.9
 pandas>=2.0.0
 segno>=1.6.1
 qrcode[pil]>=7.4.2
