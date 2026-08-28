@@ -105,9 +105,9 @@ def make_upi_qr(amount: int, plan_ref: str) -> bytes:
         q = _qr.QRCode(error_correction=_qrc.ERROR_CORRECT_H, box_size=8, border=4)
         q.add_data(upi_uri)
         q.make(fit=True)
-        img = q.make_image(fill_color="black", back_color="white")
+        pil_img = q.make_image(fill_color="black", back_color="white").get_image()
         buf = io.BytesIO()
-        img.save(buf, format="PNG")
+        pil_img.save(buf, "PNG")
         buf.seek(0)
         return buf.getvalue()
     except ImportError:
