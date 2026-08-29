@@ -1,4 +1,3 @@
-import json
 from typing import Dict, Any
 
 from rag.retriever import CaseRetriever
@@ -6,9 +5,8 @@ from rag.retriever import CaseRetriever
 
 class DetectiveAgent:
 
-    def _init_(self):
-        # FIX: The constructor must use Python's special _init_ method.
-        # This creates the RAG retriever when DetectiveAgent is initialized.
+    def __init__(self):
+        # Create the RAG retriever when the agent is initialized.
         self.retriever = CaseRetriever()
 
     def evaluate_suspect(
@@ -29,18 +27,31 @@ class DetectiveAgent:
 
         # Search the RAG case database for the most similar
         # historical cases.
-        matched_cases = self.retriever.search_similar_cases(
+        retrieved_cases = self.retriever.search_similar_cases(
             query_str,
             top_k=3
         )
+
+        # Only treat cases with a meaningful similarity as actual
+        # historical matches.
+        #
+        # CaseRetriever returns distance = 1 - cosine similarity.
+        # Therefore, smaller distance means stronger similarity.
+        MATCH_DISTANCE_THRESHOLD = 0.80
+
+        matched_cases = [
+            case
+            for case in retrieved_cases
+            if case.get("distance", 1.0) <= MATCH_DISTANCE_THRESHOLD
+        ]
 
         # Start with the existing base tendency score.
         base_score = 30
 
         if matched_cases:
 
-            # Each matching historical case increases the score by 20.
-            # This preserves the original scoring logic.
+            # Each meaningful matching historical case increases
+            # the score by 20.
             match_factor = len(matched_cases) * 20
 
             # Keep the maximum score at 95%.
@@ -48,7 +59,8 @@ class DetectiveAgent:
 
         else:
 
-            # No historical match means a lower default score.
+            # No meaningful historical match means a lower
+            # default score.
             score = 15
 
         # Convert the numerical score into a risk category.
@@ -59,20 +71,18 @@ class DetectiveAgent:
         else:
             risk_level = "LOW RISK"
 
-        # Return the result in the structure expected by
-        # the frontend.
+        # Return the structure expected by the frontend.
         return {
             "suspect_name": name,
             "tendency_score": f"{score}%",
             "risk_level": risk_level,
 
-            # Explain the basis of the current score.
             "summary": (
                 f"Suspect pattern aligns with "
                 f"{len(matched_cases)} historical cases in the database."
             ),
 
-            # Keep the retrieved cases available to the frontend
-            # for display and PDF report generation.
+            # Keep only meaningful matches for display and
+            # PDF report generation.
             "similar_cases": matched_cases
         } 
