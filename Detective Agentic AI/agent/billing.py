@@ -1,26 +1,30 @@
-"""
-agent/billing.py
-UTR Reference ID & Amount Validation Engine with Partial Payment Recovery
-"""
-
-import json
 import os
+import json
 import re
 import time
-from typing import Dict, List, Tuple
+from typing import Tuple, List, Dict, Any
 
-DATA_DIR      = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data"))
+# File Paths
+DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data"))
 PAYMENTS_FILE = os.path.join(DATA_DIR, "payments.json")
 
-# ── Payment status constants ───────────────────────────────────────────────────
-STATUS_PENDING     = "Pending Verification"
-STATUS_APPROVED    = "Approved"
-STATUS_PARTIAL     = "Partial Payment - Action Required"
-STATUS_FLAGGED     = "Flagged"
-STATUS_TOPUP_DONE  = "Top-Up Submitted"
+# Status Constants
+STATUS_PENDING = "PENDING"
+STATUS_APPROVED = "APPROVED"
+STATUS_PARTIAL = "PARTIAL"
+STATUS_TOPUP_DONE = "TOPUP_DONE"
+STATUS_FLAGGED = "FLAGGED"
+STATUS_INVALID_UTR = "INVALID_UTR"
 
 
-def _load_raw() -> List[Dict]:
+def _ensure_data_dir():
+    """Ensures that the data directory exists."""
+    os.makedirs(DATA_DIR, exist_ok=True)
+
+
+def load_payments() -> List[Dict[str, Any]]:
+    """Loads payment records from JSON file."""
+    _ensure_data_dir()
     if not os.path.exists(PAYMENTS_FILE):
         return []
     try:
@@ -30,170 +34,156 @@ def _load_raw() -> List[Dict]:
         return []
 
 
-def _save_raw(payments: List[Dict]) -> None:
-    os.makedirs(DATA_DIR, exist_ok=True)
+def save_payments(payments: List[Dict[str, Any]]):
+    """Saves payment records to JSON file."""
+    _ensure_data_dir()
     with open(PAYMENTS_FILE, "w", encoding="utf-8") as f:
         json.dump(payments, f, indent=2, ensure_ascii=False)
 
 
-# ── Core validation function ───────────────────────────────────────────────────
-
-def verify_payment_reference(
-    utr: str,
-    amount_paid: float,
-    required_amount: float,
-    plan: str,
-    evals,
-    existing_payments: List[Dict],
-) -> Tuple[str, str, float]:
+def validate_utr_format(utr: str) -> bool:
     """
-    Validate a UPI UTR submission.
-
-    Returns (status, message, remaining_balance).
-
-    Step A — Format & uniqueness:
-        UTR must be 8–22 alphanumeric chars and not already used.
-    Step B — Exact match:
-        amount_paid == required_amount  →  STATUS_APPROVED
-    Step C — Underpayment:
-        amount_paid < required_amount   →  STATUS_PARTIAL
-    Step D — Overpayment (unlikely but handled):
-        amount_paid > required_amount   →  STATUS_APPROVED (excess ignored)
+    Validates Indian standard UPI UTR / RRN numbers.
+    Standard UTR numbers are strictly 12 digits.
     """
-    utr = utr.strip()
-
-    # Step A — Format check
-    if not re.match(r"^[A-Za-z0-9]{8,22}$", utr):
-        return (
-            STATUS_FLAGGED,
-            "❌ Invalid UTR format. A valid UPI UTR is 8–22 alphanumeric characters.",
-            0.0,
-        )
-
-    # Step A — Uniqueness check (ignore top-up entries which share base UTR)
-    used_utrs = {p.get("utr", "") for p in existing_payments if p.get("utr")}
-    if utr in used_utrs:
-        return (
-            STATUS_FLAGGED,
-            f"❌ UTR `{utr}` has already been submitted. Each transaction can only be used once.",
-            0.0,
-        )
-
-    remaining = max(0.0, required_amount - amount_paid)
-
-    # Step B / D — Exact or overpayment
-    if amount_paid >= required_amount:
-        return STATUS_APPROVED, "✅ Payment verified. Full amount received.", 0.0
-
-    # Step C — Underpayment
-    return (
-        STATUS_PARTIAL,
-        (
-            f"⚠️ Partial payment detected. "
-            f"You paid ₹{amount_paid:,.0f} out of ₹{required_amount:,.0f}. "
-            f"Remaining balance: ₹{remaining:,.0f}."
-        ),
-        remaining,
-    )
+    cleaned_utr = utr.strip()
+    return bool(re.match(r"^\d{12}$", cleaned_utr))
 
 
 def submit_payment(
     plan: str,
     required_amount: float,
     amount_paid: float,
-    evals,
-    utr: str,
+    evals: Any,
+    utr: str
 ) -> Tuple[str, str, float]:
     """
-    Full submission pipeline: validate then persist to payments.json.
-    Returns (status, message, remaining_balance).
+    Submits and processes a payment proof:
+    1. Validates UTR structure (returns error if fake/invalid format).
+    2. Checks for duplicate UTR submissions.
+    3. Calculates remaining deficit balance.
+    4. Auto-approves if full payment is reached.
     """
-    existing = _load_raw()
-    status, message, remaining = verify_payment_reference(
-        utr, amount_paid, required_amount, plan, evals, existing
-    )
+    utr_clean = utr.strip()
 
-    record = {
-        "plan":             plan,
-        "required_amount":  required_amount,
-        "amount_paid":      amount_paid,
+    # Step 1: Validate UTR format
+    if not validate_utr_format(utr_clean):
+        return (
+            STATUS_INVALID_UTR,
+            "❌ Invalid UTR ID! Bank transaction reference numbers must be exactly 12 numerical digits.",
+            required_amount
+        )
+
+    payments = load_payments()
+
+    # Step 2: Check for duplicate UTR submissions
+    for pmt in payments:
+        if pmt.get("utr") == utr_clean:
+            return STATUS_FLAGGED, "⚠️ This UTR ID has already been submitted and processed.", 0.0
+
+    # Step 3: Calculate balance
+    remaining = max(0.0, required_amount - amount_paid)
+
+    if amount_paid >= required_amount:
+        status = STATUS_APPROVED
+        msg = f"🎉 Congratulations! Payment of ₹{amount_paid:,.0f} verified. Your plan '{plan}' is now fully active with {evals} evaluations!"
+    else:
+        status = STATUS_PARTIAL
+        msg = f"⚠️ Partial Payment Detected: Plan price is ₹{required_amount:,.0f}, but you paid ₹{amount_paid:,.0f}. Please pay the remaining ₹{remaining:,.0f} to unlock your evaluations."
+
+    new_record = {
+        "utr": utr_clean,
+        "plan": plan,
+        "required_amount": required_amount,
+        "amount_paid": amount_paid,
         "remaining_balance": remaining,
-        "evals":            evals,
-        "utr":              utr.strip(),
-        "status":           status,
-        "timestamp":        time.strftime("%Y-%m-%d %H:%M:%S"),
-        "topup_utrs":       [],   # list of subsequent top-up UTR submissions
+        "evals": evals,
+        "status": status,
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "topup_utrs": []
     }
-    existing.append(record)
-    _save_raw(existing)
-    return status, message, remaining
+
+    payments.append(new_record)
+    save_payments(payments)
+    return status, msg, remaining
 
 
-def submit_topup(utr_topup: str, original_utr: str) -> Tuple[str, str]:
+def submit_topup(topup_utr: str, parent_utr: str, topup_amount: float) -> Tuple[str, str, float]:
     """
-    Record a top-up UTR for a previously partial payment.
-    Returns (new_status, message).
+    Processes a top-up payment for an incomplete payment balance:
+    Deducts new amount from remaining balance and auto-approves when remaining == 0.
     """
-    utr_topup = utr_topup.strip()
-    existing  = _load_raw()
+    topup_utr_clean = topup_utr.strip()
 
-    # Validate format
-    if not re.match(r"^[A-Za-z0-9]{8,22}$", utr_topup):
-        return STATUS_PARTIAL, "❌ Invalid top-up UTR format."
+    if not validate_utr_format(topup_utr_clean):
+        return (
+            STATUS_INVALID_UTR,
+            "❌ Invalid Top-Up UTR ID! Must be a valid 12-digit bank reference number.",
+            0.0
+        )
 
-    # Prevent reuse
-    all_utrs = {p.get("utr", "") for p in existing}
-    all_topups = {t for p in existing for t in p.get("topup_utrs", [])}
-    if utr_topup in all_utrs or utr_topup in all_topups:
-        return STATUS_PARTIAL, "❌ This UTR has already been used."
+    payments = load_payments()
 
-    for p in existing:
-        if p.get("utr") == original_utr:
-            p["topup_utrs"].append(utr_topup)
-            p["status"] = STATUS_TOPUP_DONE
-            break
+    for pmt in payments:
+        if pmt.get("utr") == parent_utr:
+            if "topup_utrs" not in pmt:
+                pmt["topup_utrs"] = []
 
-    _save_raw(existing)
-    return STATUS_TOPUP_DONE, "✅ Top-up submitted! Admin will verify and unlock your quota."
+            if topup_utr_clean in pmt["topup_utrs"] or topup_utr_clean == parent_utr:
+                return STATUS_FLAGGED, "⚠️ This top-up UTR has already been submitted.", pmt.get("remaining_balance", 0.0)
+
+            # Update totals
+            pmt["topup_utrs"].append(topup_utr_clean)
+            pmt["amount_paid"] += topup_amount
+            new_remaining = max(0.0, pmt["required_amount"] - pmt["amount_paid"])
+            pmt["remaining_balance"] = new_remaining
+
+            if new_remaining == 0.0:
+                pmt["status"] = STATUS_APPROVED
+                msg = f"🎉 Congratulations! Top-up of ₹{topup_amount:,.0f} completed your payment. Your '{pmt['plan']}' plan is unlocked!"
+            else:
+                pmt["status"] = STATUS_PARTIAL
+                msg = f"⚠️ Top-up of ₹{topup_amount:,.0f} received. Remaining balance: ₹{new_remaining:,.0f}. Please pay the rest to unlock."
+
+            save_payments(payments)
+            return pmt["status"], msg, new_remaining
+
+    return STATUS_FLAGGED, "❌ Original payment record not found.", 0.0
 
 
 def approve_payment(utr: str) -> bool:
-    """Admin action: mark a record as Approved and return True if found."""
-    existing = _load_raw()
-    found = False
-    for p in existing:
-        if p.get("utr") == utr:
-            p["status"] = STATUS_APPROVED
-            found = True
-    if found:
-        _save_raw(existing)
-    return found
+    """Manually approves a payment record from the admin panel."""
+    payments = load_payments()
+    for pmt in payments:
+        if pmt.get("utr") == utr:
+            pmt["status"] = STATUS_APPROVED
+            pmt["remaining_balance"] = 0.0
+            save_payments(payments)
+            return True
+    return False
 
 
 def flag_partial(utr: str) -> bool:
-    """Admin action: explicitly flag as partial (prompts user for top-up)."""
-    existing = _load_raw()
-    found = False
-    for p in existing:
-        if p.get("utr") == utr:
-            p["status"] = STATUS_PARTIAL
-            found = True
-    if found:
-        _save_raw(existing)
-    return found
+    """Flags a payment record as partial/incomplete."""
+    payments = load_payments()
+    for pmt in payments:
+        if pmt.get("utr") == utr:
+            pmt["status"] = STATUS_PARTIAL
+            save_payments(payments)
+            return True
+    return False
 
 
-def get_pending_payments() -> List[Dict]:
-    """Return all payments not yet approved."""
-    return [
-        p for p in _load_raw()
-        if p.get("status") not in (STATUS_APPROVED,)
-    ]
+def get_pending_payments() -> List[Dict[str, Any]]:
+    """Returns all payment submissions awaiting review or completion."""
+    payments = load_payments()
+    return [p for p in payments if p.get("status") in [STATUS_PENDING, STATUS_PARTIAL, STATUS_TOPUP_DONE]]
 
 
-def get_partial_by_utr(utr: str) -> Dict:
-    """Return a single partial-payment record by its UTR."""
-    for p in _load_raw():
-        if p.get("utr") == utr and p.get("status") == STATUS_PARTIAL:
+def get_partial_by_utr(utr: str) -> Dict[str, Any]:
+    """Retrieves a specific partial payment record by UTR."""
+    payments = load_payments()
+    for p in payments:
+        if p.get("utr") == utr and p.get("status") in [STATUS_PARTIAL, STATUS_TOPUP_DONE]:
             return p
-    return {}
+    return {} 
