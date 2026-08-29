@@ -6,6 +6,8 @@ class DetectiveAgent:
 
     def __init__(self):
         # Create the RAG retriever when the agent is initialized.
+        # app.py caches the DetectiveAgent, so this expensive setup is not
+        # repeated for every suspect analysis or Streamlit rerun.
         self.retriever = CaseRetriever()
 
     def evaluate_suspect(
@@ -41,21 +43,42 @@ class DetectiveAgent:
                     matched_cases.append(case)
 
         # Dynamic Scoring Logic
-        base_score = 30
+        # Use the actual vector similarity instead of only counting the number
+        # of matched cases. This prevents different suspects with different
+        # similarity strengths from receiving the same score merely because
+        # they have the same number of matches.
+        base_score = 15
 
         if matched_cases:
-            # Each matching historical case increases the score by 20.
-            match_factor = len(matched_cases) * 20
-            score = min(base_score + match_factor, 95)
+            similarities = []
+            for case in matched_cases:
+                try:
+                    distance = float(case.get("distance"))
+                    similarity = max(0.0, min(1.0, 1.0 - distance))
+                    similarities.append(similarity)
+                except (TypeError, ValueError):
+                    continue
+
+            if similarities:
+                average_similarity = sum(similarities) / len(similarities)
+
+                # Stronger RAG similarity produces a higher tendency score.
+                # A small match-count bonus rewards multiple independent
+                # precedents without making the score depend on count alone.
+                score = base_score + (average_similarity * 70) + (len(matched_cases) * 5)
+                score = min(95, max(15, round(score)))
+            else:
+                score = base_score
         else:
-            # Fallback heuristic: analyze keyword severity if no ChromaDB vector match is found
+            # Fallback heuristic: analyze keyword severity if no ChromaDB
+            # vector match is found.
             combined_text = f"{behavior} {mo_suspected} {personality_notes}".lower()
             severe_keywords = [
-                "murder", "kill", "weapon", "assault", "robbery", 
+                "murder", "kill", "weapon", "assault", "robbery",
                 "theft", "break-in", "crime", "stolen", "force", "threat"
             ]
             kw_matches = sum(1 for kw in severe_keywords if kw in combined_text)
-            
+
             if kw_matches > 0:
                 score = min(95, max(25, base_score + (kw_matches * 15)))
             else:
@@ -81,4 +104,4 @@ class DetectiveAgent:
                 f"No direct vector match in database. Risk evaluated from behavioral indicators."
             ),
             "similar_cases": matched_cases
-        } 
+        }
