@@ -488,6 +488,11 @@ with tab_profile:
                 "Run Intelligence Analysis", type="primary", use_container_width=True
             )
 
+        # Clear current analysis button to quickly clear UI state manually
+        if st.session_state.latest_results and st.button("🧹 Clear Current Analysis", use_container_width=True):
+            st.session_state.latest_results = None
+            st.rerun()
+
     with col2:
         st.subheader("Analysis & Precedent Results")
 
@@ -497,9 +502,12 @@ with tab_profile:
             elif st.session_state.max_evals != "Unlimited" and st.session_state.evals_left <= 0:
                 st.error("🚫 Evaluation Quota Exceeded! Please upgrade via the Billing tab.")
             else:
+                # Clear previous active result state before running new analysis
+                st.session_state.latest_results = None
+                
                 with st.spinner("Analyzing traits against ChromaDB precedent vectors..."):
                     try:
-                        name_str = suspect_name if suspect_name else "Unnamed Suspect"
+                        name_str = suspect_name.strip() if suspect_name.strip() else "Unnamed Suspect"
                         
                         # Exact call matching DetectiveAgent.evaluate_suspect() parameters
                         res = agent.evaluate_suspect(
@@ -513,7 +521,7 @@ with tab_profile:
                         if st.session_state.max_evals != "Unlimited":
                             st.session_state.evals_left = max(0, st.session_state.evals_left - 1)
 
-                        # Store results in session state
+                        # Store fresh results directly in session state
                         st.session_state.latest_results = {
                             "name":           res.get("suspect_name", name_str),
                             "age":            age,
@@ -524,12 +532,11 @@ with tab_profile:
                             "summary_text":   res.get("summary", ""),
                             "timestamp":      time.time()
                         }
-                        
-                        st.rerun()  # Instantly updates sidebar quota counter
 
                     except Exception as err:
                         st.error(f"Analysis failed: {err}")
 
+        # Render active/latest results immediately
         if st.session_state.latest_results:
             res = st.session_state.latest_results
             m_col1, m_col2 = st.columns(2)
@@ -744,245 +751,5 @@ with tab_contact:
     st.divider()
     st.info(
         "⏱️ **Response time:** Typically within 24 hours on weekdays.  \n"
-        "🌐 **Platform:** https://ibmhackathon2026-uzj9dxbwnxgkcdffvztpfa.streamlit.app/"
-    )
-
-# ══════════════════════════════════════════════════════════════════════════════
-# TAB 4 — B2B AGENCY ACQUISITION  (ADMIN ONLY)
-# ══════════════════════════════════════════════════════════════════════════════
-if tab_outreach is not None:
-    with tab_outreach:
-
-        # Hard server-side guard — even if somehow rendered, block execution
-        if not st.session_state.is_admin:
-            st.error("🔒 Access denied. Admin authentication required.")
-            st.stop()
-
-        st.subheader("🔍 Step 1 — Scrape B2B Agency Leads")
-        st.caption("Scrapes Google Maps listings for detective / investigative agencies in a target region.")
-
-        scrape_col1, scrape_col2 = st.columns(2)
-        with scrape_col1:
-            search_query = st.text_input(
-                "Target Search Query",
-                value="Private Detective Agency",
-                key="scrape_query"
-            )
-        with scrape_col2:
-            target_region = st.text_input(
-                "Target Region",
-                value="Delhi NCR",
-                key="scrape_region"
-            )
-
-        max_results = st.slider("Max Leads to Scrape", min_value=5, max_value=50, value=15, key="scrape_max")
-
-        if st.button("🚀 Start Lead Scraping", type="primary", use_container_width=True, key="btn_scrape"):
-            with st.spinner(f"Searching for '{search_query}' in '{target_region}'..."):
-                new_leads = scrape_leads_sync(search_query, target_region, max_results)
-                if new_leads and "error" in new_leads[0]:
-                    st.error(f"Scraping failed: {new_leads[0]['error']}")
-                else:
-                    st.success(f"✅ Extracted {len(new_leads)} new leads. Saved to data/leads.json.")
-
-        st.divider()
-        st.subheader("📋 Current Lead Database")
-
-        all_leads = load_leads()
-
-        generated_count = sum(1 for l in all_leads if l.get("source", "") == "Generated (Verify Manually)")
-        if generated_count:
-            st.warning(
-                f"⚠️ **{generated_count} lead(s) have auto-generated placeholder emails** "
-                f"(source: *Generated (Verify Manually)*). "
-                "**Edit their `contact_email` in the table below, then click 💾 Save Lead Edits before dispatching.**"
-            )
-
-        if not all_leads:
-            st.info("No leads yet. Run a scrape above or manually add leads below.")
-        else:
-            df_leads = pd.DataFrame(all_leads)
-            edited_df = st.data_editor(
-                df_leads,
-                use_container_width=True,
-                num_rows="dynamic",
-                key="leads_editor",
-                column_config={
-                    "agency_name":   st.column_config.TextColumn("Agency Name"),
-                    "location":      st.column_config.TextColumn("Location"),
-                    "contact_email": st.column_config.TextColumn("Contact Email"),
-                    "website":       st.column_config.LinkColumn("Website"),
-                    "source":        st.column_config.TextColumn("Source"),
-                    "status":        st.column_config.SelectboxColumn(
-                        "Status",
-                        options=["Prospect", "Contacted", "Replied", "Converted", "Skipped"]
-                    ),
-                },
-            )
-
-            save_col, dl_col = st.columns(2)
-            with save_col:
-                if st.button("💾 Save Lead Edits", use_container_width=True, key="btn_save_leads"):
-                    save_leads(edited_df.to_dict(orient="records"))
-                    st.success("Lead database saved.")
-            with dl_col:
-                csv_bytes = edited_df.to_csv(index=False).encode()
-                st.download_button(
-                    "📥 Export Leads as CSV",
-                    data=csv_bytes,
-                    file_name="agency_leads.csv",
-                    mime="text/csv",
-                    use_container_width=True,
-                    key="dl_leads_csv"
-                )
-
-        if all_leads:
-            st.markdown("")
-            if st.button(
-                "🗑️ Clear All Leads (reset lead database)",
-                use_container_width=False,
-                key="btn_clear_leads",
-                type="secondary",
-                help="Wipes data/leads.json completely. Run a fresh scrape afterwards."
-            ):
-                save_leads([])
-                st.success("✅ Lead database cleared. Run a fresh scrape to repopulate.")
-                st.rerun()
-
-        st.divider()
-
-        # ── Email Campaign ─────────────────────────────────────────────────────
-        st.subheader("📧 Step 2 — Configure & Dispatch Cold Email Campaign")
-
-        if not all_leads:
-            st.info("Scrape leads first before configuring an email campaign.")
-        else:
-            st.markdown("**Select leads to include in this campaign:**")
-            selected_indices: list = []
-            sel_cols = st.columns(3)
-            for i, lead in enumerate(all_leads):
-                if sel_cols[i % 3].checkbox(
-                    f"{lead.get('agency_name','?')} — {lead.get('location','?')}",
-                    key=f"chk_lead_{i}"
-                ):
-                    selected_indices.append(i)
-
-            selected_leads = [all_leads[i] for i in selected_indices]
-            st.markdown(f"**{len(selected_leads)} lead(s) selected**")
-
-            # ── Pre-dispatch email preview ─────────────────────────────────────
-            if selected_leads:
-                unverified = [l for l in selected_leads if l.get("source", "") == "Generated (Verify Manually)"]
-                if unverified:
-                    st.error(
-                        f"🚫 **{len(unverified)} of your selected leads have placeholder emails** "
-                        f"(auto-generated, not real). Sending to these will bounce.  \n"
-                        "**Fix:** scroll up to the lead table → edit the `contact_email` column → click 💾 Save Lead Edits → then come back and dispatch."
-                    )
-                    with st.expander("📋 Show selected leads & their emails"):
-                        for l in selected_leads:
-                            is_fake = l.get("source", "") == "Generated (Verify Manually)"
-                            badge = "⚠️ PLACEHOLDER" if is_fake else "✅ Real"
-                            st.markdown(
-                                f"**{l.get('agency_name','?')}** — "
-                                f"`{l.get('contact_email','(none)')}` — {badge}"
-                            )
-
-            st.markdown("---")
-            st.markdown("**Email Template Editor**")
-
-            email_subject = st.text_input(
-                "Email Subject Template",
-                value=COLD_EMAIL_SUBJECT,
-                key="email_subject_tpl"
-            )
-            email_body = st.text_area(
-                "Email Body Template  (`{agency_name}` and `{location}` are replaced per lead)",
-                value=COLD_EMAIL_BODY,
-                height=280,
-                key="email_body_tpl"
-            )
-            app_password = st.text_input(
-                "Gmail App Password (16-digit)",
-                type="password",
-                placeholder="xxxx xxxx xxxx xxxx",
-                key="gmail_app_pass",
-                help="Google Account → Security → 2-Step Verification → App Passwords"
-            )
-
-            st.warning(
-                "⚠️ Emails will be sent **immediately** when you click Approve & Dispatch. "
-                "Make sure the lead list and template are correct before proceeding."
-            )
-
-            dispatch_btn = st.button(
-                "✅ Approve & Dispatch Campaign",
-                type="primary",
-                use_container_width=True,
-                disabled=(len(selected_leads) == 0),
-                key="btn_dispatch_campaign"
-            )
-
-            if dispatch_btn:
-                pw = app_password.strip().replace(" ", "")
-                if not pw:
-                    st.error("❌ Please enter your Gmail App Password before dispatching.")
-                elif len(pw) != 16:
-                    st.error(
-                        f"❌ Gmail App Passwords are exactly 16 characters (you entered {len(pw)}). "
-                        "Go to Google Account → Security → 2-Step Verification → App Passwords to generate one."
-                    )
-                else:
-                    progress_bar = st.progress(0, text="Initialising...")
-                    log_area     = st.empty()
-                    dispatch_log: list = []
-
-                    def update_progress(idx: int, total: int, agency: str, status: str, error: str = "") -> None:
-                        pct  = int(idx / total * 100)
-                        if status == "SENT":
-                            icon = "✅"
-                            line = f"{icon} [{idx}/{total}] {agency} — SENT"
-                        elif status == "SKIPPED":
-                            icon = "⏭️"
-                            line = f"{icon} [{idx}/{total}] {agency} — SKIPPED (no valid email)"
-                        else:
-                            icon = "❌"
-                            err_short = (error[:120] + "…") if len(error) > 120 else error
-                            line = f"{icon} [{idx}/{total}] {agency} — FAILED: {err_short}"
-                        dispatch_log.append(line)
-                        progress_bar.progress(pct, text=f"Sending {idx}/{total}…")
-                        log_area.code("\n".join(dispatch_log), language="text")
-
-                    results = send_cold_emails(
-                        leads=selected_leads,
-                        app_password=pw,
-                        subject_template=email_subject,
-                        body_template=email_body,
-                        delay_seconds=4,
-                        progress_callback=update_progress,
-                    )
-
-                    # Check for init failure (bad password / auth error before any send)
-                    if results and results[0].get("status") == "INIT_FAIL":
-                        progress_bar.empty()
-                        st.error(
-                            f"❌ Could not connect to Gmail SMTP.\n\n"
-                            f"**Error:** {results[0].get('error', 'Unknown')}\n\n"
-                            "Make sure you are using a **Gmail App Password** (not your regular password). "
-                            "Google Account → Security → 2-Step Verification → App Passwords."
-                        )
-                    else:
-                        sent    = sum(1 for r in results if r["status"] == "SENT")
-                        failed  = sum(1 for r in results if r["status"] == "FAILED")
-                        skipped = sum(1 for r in results if r["status"] == "SKIPPED")
-                        progress_bar.progress(100, text="Campaign complete!")
-                        st.success(
-                            f"Campaign finished — ✅ {sent} sent, ❌ {failed} failed, ⏭️ {skipped} skipped."
-                        )
-
-                        contacted_names = {r["agency_name"] for r in results if r["status"] == "SENT"}
-                        updated = load_leads()
-                        for lead in updated:
-                            if lead.get("agency_name") in contacted_names:
-                                lead["status"] = "Contacted"
-                        save_leads(updated) 
+        "🌐 **Platform:** https://ibmhackath"
+    ) 
