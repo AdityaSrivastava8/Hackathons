@@ -1,0 +1,110 @@
+================================================================================
+PROJECT ARCHITECTURE & FEATURE IMPLEMENTATION LOG: B2B OUTREACH & LEAD ENGINE
+================================================================================
+
+1. EXECUTIVE OVERVIEW
+--------------------------------------------------------------------------------
+This document details the complete technical architecture, feature set, and 
+implementation mechanics of the B2B Lead Scraper and Cold Email Automation Engine 
+developed within the Agentic AI platform. 
+
+The primary objective of this subsystem is to provide an automated, low-overhead pipeline 
+capable of discovering targeted regional business leads (such as detective agencies, 
+legal firms, and private investigation offices), enriching their contact metadata, 
+persisting the discovery results safely, and orchestrating personalized outreach via 
+SMTP without relying on expensive third-party APIs.
+
+Designed for lightweight deployment on environments like Streamlit Cloud, the codebase 
+minimizes external heavy dependencies while utilizing multi-tier fallback strategies to 
+ensure high availability, fault tolerance, and predictable performance.
+
+
+2. CORE ARCHITECTURE & DISCOVERY PIPELINE
+--------------------------------------------------------------------------------
+The core lead discovery engine (`scrape_leads_sync`) employs a four-stage waterfall 
+architecture. When a search query is initiated with a specific target keyword and location, 
+the system queries available endpoints in order of precision and data depth.
+
+  A. Stage 1: OpenStreetMap (OSM) / Overpass API Integration
+     - Executes spatial vector searches around target geographic locations.
+     - Uses Nominatim geocoding to resolve human-readable locations into exact latitude 
+       and longitude coordinates.
+     - Leverages specialized OpenStreetMap key-value tags (such as `office=detective`, 
+       `office=investigator`, `office=lawyer`, `amenity=police`) within a 25,000-meter 
+       radius of the resolved center.
+     - Extracts primary metadata including entity name, website URLs, contact phone 
+       numbers, and public emails.
+
+  B. Stage 2: DuckDuckGo Instant Answer API Fallback
+     - Activated if OpenStreetMap returns fewer leads than requested by the caller.
+     - Queries DuckDuckGo's zero-click endpoint using structured search patterns 
+       (e.g., "{keyword} agencies {location}").
+     - Parses nested topic lists and related result entries, extracting business names, 
+       website domains, and structural links.
+
+  C. Stage 3: Wikipedia OpenSearch API Integration
+     - Serves as a tertiary fallback for larger institutional or publicly indexed entities.
+     - Queries Wikipedia's namespace zero using relevance-weighted keyword matching to 
+       identify real-world organizations, investigative bodies, or legal registries matching 
+       the target location.
+
+  D. Stage 4: Deterministic Seed Fallback
+     - Acts as a final safety net to guarantee pipeline continuity under network-constrained 
+       or low-coverage search conditions.
+     - Generates structured prospect entries using region-adjusted business naming patterns, 
+       ensuring downstream outreach and reporting workflows can continue seamlessly.
+
+
+3. DATA ENRICHMENT, DEDUPLICATION, & PERSISTENCE
+--------------------------------------------------------------------------------
+To maintain database integrity and ensure actionable records, raw scraped data passes 
+through automated cleaning, normalization, and persistence routines:
+
+  - Domain & Email Extraction: Automatically parses website links using URL scheme 
+    analysis to extract root domains. If an explicit contact email is absent from open 
+    directory tags, the engine constructs domain-bound contact patterns (e.g., info@domain.com) 
+    or normalized fallback slugs.
+  - Multi-Field Deduplication: Uses normalized composite keys combining lowercase 
+    agency names and clean location strings. Duplicate entries across different sources 
+    are merged, preventing redundant records.
+  - Local JSON Persistence (`load_leads` / `save_leads`): Persists discoveries directly 
+    to a centralized dataset file (`data/leads.json`). Handles path creation, corrupt JSON 
+    recovery, and incremental record merging without overwriting historical prospecting data.
+
+
+4. COLD EMAIL OUTREACH ENGINE
+--------------------------------------------------------------------------------
+The outbound messaging module (`send_cold_emails`) translates target leads into direct 
+B2B communications through a resilient email transmission engine:
+
+  - SMTP Authentication & Routing: Integrates with Gmail's secure SMTP servers using app-level 
+    authentication (`yagmail`), bypassing complex legacy client setups.
+  - Dynamic String Templating: Supports variable interpolation across both email subjects 
+    and bodies. Automatically injects agency names, localized regions, and promotional 
+    value propositions dynamically per recipient.
+  - Granular Validation: Validates recipient email syntax prior to network calls, skipping 
+    invalid formats and logging appropriate status responses (`SKIPPED`, `SENT`, `FAILED`, `INIT_FAIL`).
+  - Rate Limiting & Anti-Spam Control: Includes customizable delays (`delay_seconds`) between 
+    consecutive email transmissions to comply with standard outbound SMTP throttling rules 
+    and maintain sender reputation.
+  - Real-time Progress Callbacks: Implements event callbacks that pass real-time execution metrics 
+    (current index, total count, agency name, delivery status, and execution errors) back to 
+    the user interface layer.
+
+
+5. CODE STRUCTURE & EXPORTS
+--------------------------------------------------------------------------------
+The engine is structured as a self-contained module (`agent/outreach.py`) exposing a clean 
+public API for consumption by Streamlit dashboards or background runners:
+
+  Exposed Functions & Constants:
+    * `scrape_leads_sync(keyword, location, max_results)` -> Main synchronous entrypoint for lead discovery.
+    * `send_cold_emails(leads, app_password, ...)`      -> Outbound campaign engine with progress callbacks.
+    * `load_leads()`                                    -> Loads historical persisted leads from disk.
+    * `save_leads(leads)`                               -> Persists and updates lead databases on disk.
+    * `COLD_EMAIL_SUBJECT`                              -> Default subject line template.
+    * `COLD_EMAIL_BODY`                                 -> Default high-converting B2B offer template.
+
+================================================================================
+END OF FILE
+================================================================================
