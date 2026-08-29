@@ -17,7 +17,13 @@ SUPPORTED_EXTENSIONS = (
 
 def _tokenize(text):
     """Convert text into simple searchable tokens."""
-    return re.findall(r"[a-zA-Z0-9_]+", text.lower())
+    if not text:
+        return []
+
+    return re.findall(
+        r"[a-zA-Z0-9_]+",
+        str(text).lower()
+    )
 
 
 def build_simple_rag_index(target_dir):
@@ -38,7 +44,7 @@ def build_simple_rag_index(target_dir):
 
     for root, dirs, files in os.walk(target_dir):
 
-        # Avoid indexing common generated/dependency directories.
+        # Avoid indexing generated/dependency directories.
         dirs[:] = [
             d for d in dirs
             if d not in {
@@ -56,7 +62,9 @@ def build_simple_rag_index(target_dir):
             if not file.lower().endswith(SUPPORTED_EXTENSIONS):
                 continue
 
-            file_path = os.path.join(root, file)
+            file_path = os.path.abspath(
+                os.path.join(root, file)
+            )
 
             try:
                 with open(
@@ -77,7 +85,7 @@ def build_simple_rag_index(target_dir):
                 })
 
             except (OSError, UnicodeError):
-                # Skip unreadable files without crashing the indexer.
+                # Skip unreadable files without crashing.
                 continue
 
     return documents
@@ -112,16 +120,18 @@ def _calculate_match_score(query_tokens, document_tokens):
 
 def _make_snippet(content, query, window=180):
     """
-    Create a useful snippet around the first matching query token.
+    Create a useful snippet around the first matching
+    query phrase or token.
     """
 
     if not content:
         return ""
 
     content_lower = content.lower()
+    query_lower = query.lower()
 
     # First try the complete query.
-    exact_index = content_lower.find(query.lower())
+    exact_index = content_lower.find(query_lower)
 
     if exact_index >= 0:
         start = max(0, exact_index - window)
@@ -155,7 +165,10 @@ def _make_snippet(content, query, window=180):
             )
 
     # No direct token found.
-    return content[:window * 2].replace("\n", " ").strip()
+    return content[:window * 2].replace(
+        "\n",
+        " "
+    ).strip()
 
 
 def query_rag_engine(documents, query, top_k=5):
@@ -164,30 +177,51 @@ def query_rag_engine(documents, query, top_k=5):
     token matching and return the best matching files.
 
     This is a dependency-free retrieval layer and can be
-    used as a fallback/basic RAG search.
+    used as a basic/fallback RAG search.
     """
 
     if not documents:
         return []
 
-    if not query or not query.strip():
+    if not query or not str(query).strip():
         return []
 
-    query = query.strip()
+    query = str(query).strip()
     query_tokens = _tokenize(query)
 
     if not query_tokens:
         return []
 
+    # Safely normalize top_k.
+    try:
+        top_k = int(top_k)
+    except (TypeError, ValueError):
+        top_k = 5
+
+    if top_k <= 0:
+        return []
+
     scored_results = []
+    seen_paths = set()
 
     for doc in documents:
+
+        if not isinstance(doc, dict):
+            continue
 
         content = doc.get("content", "")
         path = doc.get("path", "")
 
-        if not content:
+        if not content or not path:
             continue
+
+        # Prevent duplicate files from appearing twice.
+        normalized_path = os.path.abspath(path)
+
+        if normalized_path in seen_paths:
+            continue
+
+        seen_paths.add(normalized_path)
 
         document_tokens = doc.get("tokens")
 
@@ -199,13 +233,13 @@ def query_rag_engine(documents, query, top_k=5):
             document_tokens
         )
 
-        # Give an exact phrase match a small ranking boost.
+        # Give an exact phrase match a ranking boost.
         if query.lower() in content.lower():
             score += 1.0
 
         if score > 0:
             scored_results.append({
-                "path": path,
+                "path": normalized_path,
                 "snippet": _make_snippet(
                     content,
                     query
@@ -219,4 +253,4 @@ def query_rag_engine(documents, query, top_k=5):
         reverse=True
     )
 
-    return scored_results[:max(1, int(top_k))] 
+    return scored_results[:top_k] 
