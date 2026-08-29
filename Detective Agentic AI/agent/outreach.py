@@ -43,7 +43,7 @@ LEADS_FILE = os.path.join(DATA_DIR, "leads.json")
 SENDER_EMAIL = "yeahboyadi@gmail.com"
 
 COLD_EMAIL_SUBJECT = (
-    "25 Free AI Profiling Credits for {agency_name} "
+    "25 Free AI Profiling Credits for {agency_name} in {location} "
     "— Detective Agentic AI"
 )
 
@@ -1024,15 +1024,21 @@ def send_cold_emails(
                 }
             else:
                 try:
-                    subject = subject_template.format(
-                        agency_name=agency,
-                        location=location,
-                    )
+                    try:
+                        subject = subject_template.format(
+                            agency_name=agency,
+                            location=location,
+                        )
+                    except KeyError:
+                        subject = subject_template.format(agency_name=agency)
 
-                    body = body_template.format(
-                        agency_name=agency,
-                        location=location,
-                    )
+                    try:
+                        body = body_template.format(
+                            agency_name=agency,
+                            location=location,
+                        )
+                    except KeyError:
+                        body = body_template.format(agency_name=agency)
 
                     yag.send(
                         to=recipient,
