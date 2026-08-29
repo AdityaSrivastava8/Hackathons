@@ -73,9 +73,9 @@ def _get_admin_password() -> str:
 
 # ── Session State defaults ─────────────────────────────────────────────────────
 _ss_defaults = {
-    "evals_left":          25,
-    "max_evals":           25,
-    "current_tier":        "Pro Agency Trial",
+    "evals_left":           25,
+    "max_evals":            25,
+    "current_tier":         "Pro Agency Trial",
     "latest_results":      None,
     "pending_plan":        None,
     "pending_amount":      None,
@@ -83,7 +83,7 @@ _ss_defaults = {
     "is_admin":            False,
     "admin_open":          False,
     "show_billing_portal": False,
-    "partial_utr":         None,   # UTR of a partial payment waiting for top-up
+    "partial_utr":          None,   # UTR of a partial payment waiting for top-up
 }
 for k, v in _ss_defaults.items():
     if k not in st.session_state:
@@ -437,15 +437,14 @@ if st.session_state.partial_utr:
     else:
         st.session_state.partial_utr = None
 
-_tab_labels = ["🔍 Profiling Dashboard", "💳 Billing & Plans", "📬 Contact & Feedback"]
-if st.session_state.is_admin:
-    _tab_labels.append("📢 B2B Agency Acquisition")
+# ── Defined Tabs ───────────────────────────────────────────────────────────────
+_tab_labels = ["🔍 Profiling Dashboard", "💳 Billing & Plans", "📬 Contact & Feedback", "📢 B2B Agency Acquisition"]
 
 _tabs = st.tabs(_tab_labels)
 tab_profile  = _tabs[0]
 tab_billing  = _tabs[1]
 tab_contact  = _tabs[2]
-tab_outreach = _tabs[3] if st.session_state.is_admin else None
+tab_outreach = _tabs[3]
 
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 1 — PROFILING DASHBOARD
@@ -480,7 +479,6 @@ with tab_profile:
                     try:
                         name_str = suspect_name.strip() if suspect_name.strip() else "Unnamed Suspect"
                         
-                        # Re-instantiate agent freshly on submission to prevent stale retriever cache
                         fresh_agent = DetectiveAgent()
                         res = fresh_agent.evaluate_suspect(
                             name=name_str,
@@ -495,7 +493,6 @@ with tab_profile:
                         raw_score = res.get("tendency_score", "0%")
                         matched_cases = res.get("similar_cases", [])
 
-                        # Calculate dynamic score if backend returns uncalibrated score on zero vector matches
                         if not matched_cases and (raw_score == "15%" or raw_score == "0%"):
                             severe_keywords = ["murder", "kill", "weapon", "assault", "robbery", "theft", "break-in", "crime", "suicide"]
                             kw_matches = sum(1 for kw in severe_keywords if kw in behaviors.lower())
@@ -505,7 +502,6 @@ with tab_profile:
                         else:
                             risk_lbl = res.get("risk_level", "UNKNOWN")
 
-                        # Store fresh analysis result directly into state
                         st.session_state.latest_results = {
                             "name":           res.get("suspect_name", name_str),
                             "age":            age,
@@ -517,13 +513,11 @@ with tab_profile:
                             "timestamp":      time.time()
                         }
                         
-                        # Force instant clean state refresh across UI
                         st.rerun()
 
                     except Exception as err:
                         st.error(f"Analysis failed: {err}")
 
-        # Render active suspect state directly
         if st.session_state.latest_results:
             res = st.session_state.latest_results
             
@@ -698,12 +692,12 @@ with tab_contact:
     with c1:
         st.markdown("### 📧 Founders — Direct Contact")
         st.markdown(
-            "**Aditya Srivastava**  \n"
+            "**Aditya Srivastava** \n"
             "Lead Developer & Founder  \n"
             "📩 [yeahboyadi@gmail.com](mailto:yeahboyadi@gmail.com)"
         )
         st.markdown(
-            "**Akshat Verma**  \n"
+            "**Akshat Verma** \n"
             "Co-Founder  \n"
             "📩 [akshat.v2166@gmail.com](mailto:akshat.v2166@gmail.com)"
         )
@@ -742,4 +736,46 @@ with tab_contact:
     st.info(
         "⏱️ **Response time:** Typically within 24 hours on weekdays.  \n"
         "🌐 **Platform:** https://ibmhackath"
-    ) 
+    )
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 4 — B2B AGENCY ACQUISITION
+# ══════════════════════════════════════════════════════════════════════════════
+with tab_outreach:
+    st.subheader("📢 B2B Lead Scraper & Cold Email Outreach")
+    st.caption("Scrape target agency contact information and execute email campaigns.")
+
+    col_kw, col_loc = st.columns(2)
+    with col_kw:
+        target_keyword = st.text_input("Target Keyword / Niche", value="Detective Agency", key="outreach_kw")
+    with col_loc:
+        target_location = st.text_input("Location", value="Delhi", key="outreach_loc")
+
+    if st.button("🔎 Scrape Leads", type="primary", use_container_width=True, key="btn_scrape_leads"):
+        with st.spinner("Scraping leads across web sources..."):
+            try:
+                scraped_data = scrape_leads_sync(target_keyword, target_location)
+                if scraped_data:
+                    st.success(f"Successfully scraped {len(scraped_data)} leads!")
+                    df_leads = pd.DataFrame(scraped_data)
+                    st.dataframe(df_leads, use_container_width=True)
+                else:
+                    st.info("No leads found matching your criteria.")
+            except Exception as e:
+                st.error(f"Scraping failed: {e}")
+
+    st.divider()
+    st.markdown("### 📧 Email Dispatcher")
+
+    saved_leads = load_leads()
+    if saved_leads:
+        st.write(f"Loaded **{len(saved_leads)}** leads ready for dispatch.")
+        if st.button("🚀 Dispatch Cold Emails", use_container_width=True, key="btn_dispatch_emails"):
+            with st.spinner("Sending emails..."):
+                try:
+                    sent_count = send_cold_emails(saved_leads, COLD_EMAIL_SUBJECT, COLD_EMAIL_BODY)
+                    st.success(f"Successfully sent {sent_count} emails!")
+                except Exception as e:
+                    st.error(f"Email dispatch failed: {e}")
+    else:
+        st.info("No saved leads available to email. Perform a lead scrape first.") 
