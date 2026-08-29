@@ -7,52 +7,51 @@ from rag.retriever import CaseRetriever
 class DetectiveAgent:
 
     def _init_(self):
-        # Creates the RAG retriever that will search the historical
-        # case database for cases similar to the current investigation.
+        # FIX: The constructor must use Python's special _init_ method.
+        # This creates the RAG retriever when DetectiveAgent is initialized.
         self.retriever = CaseRetriever()
 
     def evaluate_suspect(
         self,
         name: str,
         behavior: str,
-        motive_suspected: str,
+        mo_suspected: str,
         personality_notes: str
     ) -> Dict[str, Any]:
 
-        # Combine the available information about the suspect into
-        # one search query for the RAG system.
+        # Build one combined query from the information supplied
+        # by the frontend.
         query_str = (
             f"Behavior: {behavior}; "
-            f"Motive: {motive_suspected}; "
+            f"Motive/MO: {mo_suspected}; "
             f"Personality: {personality_notes}"
         )
 
-        # Search the case database for the 3 most similar historical
-        # cases. The quality of this step depends on CaseRetriever.
+        # Search the RAG case database for the most similar
+        # historical cases.
         matched_cases = self.retriever.search_similar_cases(
             query_str,
             top_k=3
         )
 
-        # Start with a base tendency score.
+        # Start with the existing base tendency score.
         base_score = 30
 
         if matched_cases:
 
             # Each matching historical case increases the score by 20.
-            # This provides a simple heuristic based on similar cases.
+            # This preserves the original scoring logic.
             match_factor = len(matched_cases) * 20
 
-            # Keep the score capped at 95 so that it never reaches 100.
+            # Keep the maximum score at 95%.
             score = min(base_score + match_factor, 95)
 
         else:
 
-            # If no similar historical cases are found, use a lower
-            # default score instead of treating the suspect as high risk.
+            # No historical match means a lower default score.
             score = 15
 
-        # Convert the numerical score into a simple risk category.
+        # Convert the numerical score into a risk category.
         if score >= 70:
             risk_level = "HIGH RISK"
         elif score >= 40:
@@ -60,20 +59,20 @@ class DetectiveAgent:
         else:
             risk_level = "LOW RISK"
 
-        # Return the investigation result as a dictionary so that
-        # other components of the application can use the information.
+        # Return the result in the structure expected by
+        # the frontend.
         return {
             "suspect_name": name,
             "tendency_score": f"{score}%",
             "risk_level": risk_level,
 
-            # Explain why the score was produced.
+            # Explain the basis of the current score.
             "summary": (
                 f"Suspect pattern aligns with "
                 f"{len(matched_cases)} historical cases in the database."
             ),
 
-            # Keep the actual retrieved cases available for further
-            # analysis or display by the frontend/agent.
+            # Keep the retrieved cases available to the frontend
+            # for display and PDF report generation.
             "similar_cases": matched_cases
-        }
+        } 
