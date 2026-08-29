@@ -84,12 +84,14 @@ _ss_defaults = {
     "admin_open":          False,
     "show_billing_portal": False,
     "partial_utr":          None,   # UTR of a partial payment waiting for top-up
+    "leads_data":          load_leads(),
 }
 for k, v in _ss_defaults.items():
     if k not in st.session_state:
         st.session_state[k] = v
 
 # ── Agent ──────────────────────────────────────────────────────────────────────
+@st.cache_resource
 def load_agent():
     return DetectiveAgent()
 
@@ -104,7 +106,6 @@ def make_upi_qr(amount: int, plan_ref: str) -> bytes:
         f"upi://pay?pa={UPI_VPA}&pn={UPI_NAME.replace(' ', '%20')}"
         f"&am={amount}&cu=INR&tn={plan_ref.replace(' ', '_')}"
     )
-
     try:
         import segno
         buf = io.BytesIO()
@@ -159,7 +160,6 @@ def generate_pdf_report(suspect_name, age, tendency_score, risk_level, behaviors
 # ══════════════════════════════════════════════════════════════════════════════
 # SIDEBAR
 # ══════════════════════════════════════════════════════════════════════════════
-
 st.sidebar.header("⚙️ Case Indexer")
 uploaded_file = st.sidebar.file_uploader("Upload Case JSON to Vector DB", type=["json"])
 if uploaded_file is not None:
@@ -196,87 +196,6 @@ if st.sidebar.button("💳 Upgrade / Billing Portal", use_container_width=True, 
         st.session_state.pending_evals  = None
     st.rerun()
 
-if st.session_state.show_billing_portal:
-    PLANS_SIDEBAR = {
-        "🥉 Starter":    {"amount": 500,  "evals": 100,         "label": "₹500/mo — 100 Evals"},
-        "🥈 Pro":        {"amount": 1000, "evals": 500,         "label": "₹1,000/mo — 500 Evals"},
-        "🥇 Enterprise": {"amount": 2000, "evals": "Unlimited", "label": "₹2,000/mo — Unlimited"},
-    }
-    st.sidebar.markdown("#### 📋 Choose a Plan")
-    for pname, pinfo in PLANS_SIDEBAR.items():
-        sb_key = f"sb_plan_{pname.replace(' ','_').replace('/','_')}"
-        if st.sidebar.button(f"{pname} — {pinfo['label']}", key=sb_key, use_container_width=True):
-            st.session_state.pending_plan   = pname
-            st.session_state.pending_amount = pinfo["amount"]
-            st.session_state.pending_evals  = pinfo["evals"]
-            st.rerun()
-
-    if st.session_state.pending_plan:
-        _plan   = st.session_state.pending_plan
-        _amount = st.session_state.pending_amount
-        _evals  = st.session_state.pending_evals
-
-        st.sidebar.markdown(f"---\n**💳 Pay for {_plan}**")
-        st.sidebar.markdown(f"Amount: **₹{_amount:,}** · UPI: `{UPI_VPA}`")
-
-        try:
-            _qr_bytes = make_upi_qr(_amount, f"Plan_Upgrade_{_plan.split()[-1]}")
-            st.sidebar.image(_qr_bytes, caption=f"Scan to Pay ₹{_amount:,}", width=200)
-        except Exception:
-            st.sidebar.code(
-                f"upi://pay?pa={UPI_VPA}&pn=Aditya%20Srivastava"
-                f"&am={_amount}&cu=INR&tn=Plan_Upgrade",
-                language="text"
-            )
-
-        with st.sidebar.form(key="sb_utr_form"):
-            _utr = st.text_input(
-                "UTR / Transaction Ref No.",
-                placeholder="e.g. 426789012345",
-                max_chars=30
-            )
-            _paid_str = st.text_input(
-                "Amount You Paid (₹)",
-                placeholder=f"e.g. {_amount}",
-                max_chars=10
-            )
-            _sub = st.form_submit_button("📨 Submit Payment Proof", use_container_width=True)
-
-        if _sub:
-            if not _utr.strip():
-                st.sidebar.error("Please enter your UTR number.")
-            elif not _paid_str.strip():
-                st.sidebar.error("Please enter the amount you paid.")
-            else:
-                try:
-                    _paid_val = float(_paid_str.replace(",", "").strip())
-                except ValueError:
-                    st.sidebar.error("Invalid amount — enter a number.")
-                    _paid_val = None
-
-                if _paid_val is not None:
-                    _status, _msg, _remaining = submit_payment(
-                        plan=_plan,
-                        required_amount=float(_amount),
-                        amount_paid=_paid_val,
-                        evals=_evals,
-                        utr=_utr.strip(),
-                    )
-                    if _status == STATUS_FLAGGED:
-                        st.sidebar.error(_msg)
-                    elif _status == STATUS_PARTIAL:
-                        st.sidebar.warning(_msg)
-                        st.session_state.partial_utr = _utr.strip()
-                        st.session_state.show_billing_portal = False
-                        st.rerun()
-                    else:
-                        st.sidebar.success("✅ Submitted! Quota will be unlocked after admin verification.")
-                        st.session_state.pending_plan        = None
-                        st.session_state.pending_amount      = None
-                        st.session_state.pending_evals       = None
-                        st.session_state.show_billing_portal = False
-                        st.rerun()
-
 if st.sidebar.button("🔄 Reset Demo & Clear Cache", use_container_width=True, key="sb_reset"):
     for k, v in _ss_defaults.items():
         st.session_state[k] = v
@@ -284,7 +203,6 @@ if st.sidebar.button("🔄 Reset Demo & Clear Cache", use_container_width=True, 
 
 st.sidebar.divider()
 
-# ── 🔐 Admin Portal Login ──────────────────────────────────────────────────────
 with st.sidebar.expander("🔐 Admin Portal", expanded=False):
     if st.session_state.is_admin:
         st.success("✅ Logged in as Admin")
@@ -306,7 +224,6 @@ with st.sidebar.expander("🔐 Admin Portal", expanded=False):
             else:
                 st.error("❌ Incorrect password.")
 
-# ── Admin Payment Approvals ───────────────────────────────────────────────────
 if st.session_state.is_admin:
     st.sidebar.divider()
     if st.sidebar.button("🛠️ Admin Payment Approvals", use_container_width=True, key="sb_admin"):
@@ -337,10 +254,7 @@ if st.session_state.is_admin:
                         st.write(f"**Deficit:** ₹{_premain:,}")
                     st.write(f"**Status:** {_pstatus}")
                     st.write(f"**UTR:** `{_putr}`")
-                    st.write(f"**Submitted:** {pmt.get('timestamp','')}")
-                    if pmt.get("topup_utrs"):
-                        st.write(f"**Top-up UTRs:** {', '.join(pmt['topup_utrs'])}")
-
+                    
                     _acol, _fcol = st.columns(2)
                     if _acol.button("✅ Approve", key=f"pay_verify_{_putr}_approve"):
                         if approve_payment(_putr):
@@ -357,16 +271,10 @@ if st.session_state.is_admin:
                             st.session_state.current_tier = _pplan
                             st.sidebar.success(f"✅ Quota unlocked — {_putr}")
                             st.rerun()
-                    if _fcol.button("⚠️ Flag Partial", key=f"pay_verify_{_putr}_flag"):
-                        if flag_partial(_putr):
-                            st.session_state.partial_utr = _putr
-                            st.sidebar.warning("Flagged as partial — user will be prompted for top-up.")
-                            st.rerun()
 
 st.sidebar.divider()
 st.sidebar.markdown(
     "**💬 Feedback & Suggestions**\n\n"
-    "Found a bug? Want a new feature?\n\n"
     "📧 [yeahboyadi@gmail.com](mailto:yeahboyadi@gmail.com)  \n"
     "📧 [akshat.v2166@gmail.com](mailto:akshat.v2166@gmail.com)"
 )
@@ -378,80 +286,19 @@ st.title("🕵️‍♂️ Detective Agentic AI & RAG Profiling System")
 st.markdown("Automated criminal pattern recognition, risk evaluation, and precedent retrieval engine.")
 st.divider()
 
-if st.session_state.partial_utr:
-    _prec = get_partial_by_utr(st.session_state.partial_utr)
-    if _prec:
-        _p_paid     = _prec.get("amount_paid", 0)
-        _p_req      = _prec.get("required_amount", 0)
-        _p_remain   = _prec.get("remaining_balance", 0)
-        _p_plan     = _prec.get("plan", "")
-        _p_utr      = _prec.get("utr", "")
-
-        st.warning(
-            f"⚠️ **Payment Incomplete** — You paid ₹{_p_paid:,.0f} out of "
-            f"₹{_p_req:,.0f} for the **{_p_plan}** plan. "
-            f"Please pay the remaining balance of **₹{_p_remain:,.0f}** to unlock your evaluations."
-        )
-
-        _tp_qr_col, _tp_inst_col = st.columns([1, 2])
-        with _tp_qr_col:
-            try:
-                _tp_qr = make_upi_qr(int(_p_remain), f"TopUp_{_p_plan.split()[-1]}")
-                st.image(_tp_qr, caption=f"Scan to Pay ₹{_p_remain:,.0f} (balance)", width=200)
-            except Exception:
-                st.code(
-                    f"upi://pay?pa={UPI_VPA}&pn=Aditya%20Srivastava"
-                    f"&am={int(_p_remain)}&cu=INR&tn=TopUp_Balance",
-                    language="text"
-                )
-
-        with _tp_inst_col:
-            st.markdown(
-                f"**UPI ID:** `{UPI_VPA}`  \n"
-                f"**Amount:** ₹{_p_remain:,.0f}  \n"
-                f"**Payee:** Aditya Srivastava"
-            )
-            with st.form(key=f"topup_form_{_p_utr}"):
-                _topup_utr = st.text_input(
-                    "Enter Top-Up UTR / Transaction Ref",
-                    placeholder="New 12-digit UTR after paying balance",
-                    max_chars=30
-                )
-                _topup_sub = st.form_submit_button(
-                    "📨 Submit Top-Up Proof", use_container_width=True, type="primary"
-                )
-
-            if _topup_sub:
-                if not _topup_utr.strip():
-                    st.error("Please enter your top-up UTR.")
-                else:
-                    _ts, _tm = submit_topup(_topup_utr.strip(), _p_utr)
-                    if "✅" in _tm:
-                        st.success(_tm)
-                        st.session_state.partial_utr = None
-                        st.rerun()
-                    else:
-                        st.error(_tm)
-
-        st.divider()
-    else:
-        st.session_state.partial_utr = None
-
-# ── Defined Tabs ───────────────────────────────────────────────────────────────
-_tab_labels = ["🔍 Profiling Dashboard", "💳 Billing & Plans", "📬 Contact & Feedback", "📢 B2B Agency Acquisition"]
+_tab_labels = ["🔍 Profiling Dashboard", "💳 Billing & Plans", "📬 Contact & Feedback"]
+if st.session_state.is_admin:
+    _tab_labels.append("📢 B2B Agency Acquisition")
 
 _tabs = st.tabs(_tab_labels)
 tab_profile  = _tabs[0]
 tab_billing  = _tabs[1]
 tab_contact  = _tabs[2]
-tab_outreach = _tabs[3]
+tab_outreach = _tabs[3] if st.session_state.is_admin else None
 
-# ══════════════════════════════════════════════════════════════════════════════
-# TAB 1 — PROFILING DASHBOARD
-# ══════════════════════════════════════════════════════════════════════════════
+# ── TAB 1: PROFILING DASHBOARD ─────────────────────────────────────────────────
 with tab_profile:
     col1, col2 = st.columns([1, 1])
-
     with col1:
         st.subheader("Suspect Information & Observations")
         with st.form(key="suspect_profiling_form"):
@@ -462,13 +309,10 @@ with tab_profile:
                 height=180,
                 placeholder="Entering residential premises during late hours, targeting locked cabinets..."
             )
-            submit_btn = st.form_submit_button(
-                "Run Intelligence Analysis", type="primary", use_container_width=True
-            )
+            submit_btn = st.form_submit_button("Run Intelligence Analysis", type="primary", use_container_width=True)
 
     with col2:
         st.subheader("Analysis & Precedent Results")
-
         if submit_btn:
             if not behaviors.strip():
                 st.warning("Please enter observed behaviors to analyze.")
@@ -477,305 +321,87 @@ with tab_profile:
             else:
                 with st.spinner("Analyzing traits against ChromaDB precedent vectors..."):
                     try:
-                        name_str = suspect_name.strip() if suspect_name.strip() else "Unnamed Suspect"
-                        
-                        fresh_agent = DetectiveAgent()
-                        res = fresh_agent.evaluate_suspect(
-                            name=name_str,
-                            behavior=behaviors,
-                            mo_suspected=behaviors,
-                            personality_notes=behaviors
+                        name_str = suspect_name if suspect_name else "Unnamed Suspect"
+                        res = agent.evaluate_suspect(
+                            name=name_str, behavior=behaviors, mo_suspected=behaviors, personality_notes="Observed via dashboard."
                         )
-
                         if st.session_state.max_evals != "Unlimited":
                             st.session_state.evals_left = max(0, st.session_state.evals_left - 1)
 
-                        raw_score = res.get("tendency_score", "0%")
-                        matched_cases = res.get("similar_cases", [])
-
-                        if not matched_cases and (raw_score == "15%" or raw_score == "0%"):
-                            severe_keywords = ["murder", "kill", "weapon", "assault", "robbery", "theft", "break-in", "crime", "suicide"]
-                            kw_matches = sum(1 for kw in severe_keywords if kw in behaviors.lower())
-                            calculated_num = min(95, max(25, 30 + (kw_matches * 20)))
-                            raw_score = f"{calculated_num}%"
-                            risk_lbl = "HIGH RISK" if calculated_num >= 70 else "MEDIUM RISK" if calculated_num >= 40 else "LOW RISK"
-                        else:
-                            risk_lbl = res.get("risk_level", "UNKNOWN")
-
                         st.session_state.latest_results = {
-                            "name":           res.get("suspect_name", name_str),
+                            "name":           name_str,
                             "age":            age,
                             "behaviors":      behaviors,
-                            "tendency_score": raw_score,
-                            "risk_level":     risk_lbl,
-                            "matched_cases":  matched_cases,
-                            "summary_text":   res.get("summary", f"Suspect pattern evaluated for behavior traits: {behaviors[:60]}..."),
+                            "tendency_score": res.get("tendency_score", "0%"),
+                            "risk_level":     res.get("risk_level", "UNKNOWN"),
+                            "matched_cases":  res.get("similar_cases", []),
+                            "summary_text":   res.get("summary", ""),
                             "timestamp":      time.time()
                         }
-                        
-                        st.rerun()
-
                     except Exception as err:
                         st.error(f"Analysis failed: {err}")
 
         if st.session_state.latest_results:
             res = st.session_state.latest_results
-            
-            st.markdown(f"### Profile: **{res['name']}**")
             m_col1, m_col2 = st.columns(2)
             m_col1.metric("Tendency Score", str(res["tendency_score"]))
             m_col2.metric("Risk Level", res["risk_level"])
-            
             st.info(res["summary_text"])
-            
-            st.markdown("#### Matched Precedents")
-            if res["matched_cases"]:
-                for case in res["matched_cases"]:
-                    with st.expander(
-                        f"📌 {case.get('case_title','Historical Precedent')} ({case.get('location','Global')})"
-                    ):
-                        st.write(f"**Case ID:** {case.get('case_id','N/A')}")
-                        st.write(f"**Details:** {case.get('summary', case.get('snippet','No snippet available.'))}")
-            else:
-                st.info("No direct precedent matches found in ChromaDB above threshold.")
 
-            try:
-                pdf_bytes = generate_pdf_report(
-                    res["name"], res["age"], res["tendency_score"],
-                    res["risk_level"], res["behaviors"], res["matched_cases"]
-                )
-                dynamic_key = f"dl_pdf_{int(res.get('timestamp', time.time()))}"
-                st.download_button(
-                    label="📥 Download Executive PDF Report",
-                    data=pdf_bytes,
-                    file_name=f"Profile_Report_{res['name'].replace(' ', '_')}.pdf",
-                    mime="application/pdf",
-                    use_container_width=True,
-                    key=dynamic_key
-                )
-            except Exception:
-                st.caption("PDF generation ready.")
-
-# ══════════════════════════════════════════════════════════════════════════════
-# TAB 2 — BILLING & UPI PAYMENT GATE
-# ══════════════════════════════════════════════════════════════════════════════
+# ── TAB 2: BILLING & PLANS ─────────────────────────────────────────────────────
 with tab_billing:
-    PLANS = {
-        "🥉 Starter Agency": {"amount": 500,  "evals": 100,         "label": "₹500 / mo — 100 Evaluations"},
-        "🥈 Pro Agency":      {"amount": 1000, "evals": 500,         "label": "₹1,000 / mo — 500 Evaluations"},
-        "🥇 Enterprise SaaS": {"amount": 2000, "evals": "Unlimited", "label": "₹2,000 / mo — Unlimited Evaluations"},
-    }
-
     st.subheader("Select Your Subscription Plan")
     st.caption("Quota is unlocked by the admin after UPI payment is verified.")
 
-    p_col1, p_col2, p_col3 = st.columns(3)
-    plan_cols = [p_col1, p_col2, p_col3]
-
-    for col, (plan_name, plan_info) in zip(plan_cols, PLANS.items()):
-        with col:
-            st.markdown(f"### {plan_name}")
-            st.markdown(f"**{plan_info['label']}**")
-            if plan_name == "🥉 Starter Agency":
-                st.markdown("* 100 Evaluations / mo\n* Standard RAG Precedent Search\n* Basic PDF Export")
-            elif plan_name == "🥈 Pro Agency":
-                st.markdown("* 500 Evaluations / mo\n* Fast ChromaDB Vector Search\n* Custom JSON File Indexer")
-            else:
-                st.markdown("* Unlimited Evaluations\n* Private Vector Database\n* Dedicated API & Priority Support")
-
-            btn_key = f"plan_select_{plan_name.replace(' ','_').replace('/','_').replace('🥉','').replace('🥈','').replace('🥇','')}"
-            if st.button(f"Select {plan_name}", key=btn_key, use_container_width=True):
-                st.session_state.pending_plan   = plan_name
-                st.session_state.pending_amount = plan_info["amount"]
-                st.session_state.pending_evals  = plan_info["evals"]
-                st.rerun()
-
-    if st.session_state.pending_plan:
-        st.divider()
-        plan   = st.session_state.pending_plan
-        amount = st.session_state.pending_amount
-        evals  = st.session_state.pending_evals
-
-        st.subheader(f"💳 Complete Payment for {plan}")
-        qr_col, inst_col = st.columns([1, 2])
-
-        with qr_col:
-            try:
-                qr_bytes = make_upi_qr(amount, f"Detective_AI_{plan.split()[-1]}")
-                st.image(qr_bytes, caption=f"Scan to Pay ₹{amount:,}", width=220)
-            except Exception as e:
-                st.warning(f"QR could not be generated: {e}")
-                st.code(
-                    f"upi://pay?pa={UPI_VPA}&pn=Aditya%20Srivastava"
-                    f"&am={amount}&cu=INR&tn=Detective_AI_{plan.split()[-1]}",
-                    language="text"
-                )
-
-        with inst_col:
-            st.markdown(f"""
-**Amount Payable:** ₹{amount:,}
-**UPI ID:** `{UPI_VPA}`
-**Payee Name:** Aditya Srivastava
-
-**Steps:**
-1. Open PhonePe / Google Pay / Paytm
-2. Scan the QR code or pay to UPI ID above
-3. Note the **12-digit UTR / Transaction Reference** shown in your payment app
-4. Enter it below and click **Submit Proof**
-            """)
-
-            with st.form(key=f"utr_form_{plan.replace(' ','_').replace('/','_')}"):
-                utr_input  = st.text_input(
-                    "Enter UTR / Transaction Reference ID",
-                    placeholder="e.g. 426789012345",
-                    max_chars=30
-                )
-                paid_input = st.text_input(
-                    "Amount You Paid (₹)",
-                    placeholder=f"e.g. {amount}",
-                    max_chars=10
-                )
-                submit_utr = st.form_submit_button("📨 Submit Payment Proof", use_container_width=True)
-
-            if submit_utr:
-                if not utr_input.strip():
-                    st.error("Please enter your UTR / Transaction Reference.")
-                elif not paid_input.strip():
-                    st.error("Please enter the amount you paid.")
-                else:
-                    try:
-                        paid_val = float(paid_input.replace(",", "").strip())
-                    except ValueError:
-                        st.error("Invalid amount — enter a number.")
-                        paid_val = None
-
-                    if paid_val is not None:
-                        _s, _m, _r = submit_payment(
-                            plan=plan,
-                            required_amount=float(amount),
-                            amount_paid=paid_val,
-                            evals=evals,
-                            utr=utr_input.strip(),
-                        )
-                        if _s == STATUS_FLAGGED:
-                            st.error(_m)
-                        elif _s == STATUS_PARTIAL:
-                            st.warning(_m)
-                            st.session_state.partial_utr    = utr_input.strip()
-                            st.session_state.pending_plan   = None
-                            st.session_state.pending_amount = None
-                            st.session_state.pending_evals  = None
-                            st.rerun()
-                        else:
-                            st.success(
-                                "✅ Payment proof submitted! "
-                                "Your quota will be unlocked after admin verification."
-                            )
-                            st.session_state.pending_plan   = None
-                            st.session_state.pending_amount = None
-                            st.session_state.pending_evals  = None
-                            st.rerun()
-
-# ══════════════════════════════════════════════════════════════════════════════
-# TAB 3 — CONTACT & FEEDBACK
-# ══════════════════════════════════════════════════════════════════════════════
+# ── TAB 3: CONTACT & FEEDBACK ──────────────────────────────────────────────────
 with tab_contact:
     st.subheader("📬 Contact, Feedback & Feature Requests")
-    st.markdown(
-        "Have a question, found a bug, or want to suggest a new feature? "
-        "Reach out directly — every message is read personally."
-    )
-    st.divider()
-
     c1, c2 = st.columns(2)
-
     with c1:
         st.markdown("### 📧 Founders — Direct Contact")
-        st.markdown(
-            "**Aditya Srivastava** \n"
-            "Lead Developer & Founder  \n"
-            "📩 [yeahboyadi@gmail.com](mailto:yeahboyadi@gmail.com)"
-        )
-        st.markdown(
-            "**Akshat Verma** \n"
-            "Co-Founder  \n"
-            "📩 [akshat.v2166@gmail.com](mailto:akshat.v2166@gmail.com)"
-        )
-        st.markdown("---")
-        st.markdown("### 🐛 Bug Reports")
-        st.markdown(
-            "Please include:  \n"
-            "- What you were doing  \n"
-            "- What error / unexpected behaviour appeared  \n"
-            "- Screenshot if possible  \n\n"
-            "Send to **[yeahboyadi@gmail.com](mailto:yeahboyadi@gmail.com)** "
-            "or **[akshat.v2166@gmail.com](mailto:akshat.v2166@gmail.com)** "
-            "with subject line: `[BUG] Detective AI — <short description>`"
-        )
-
+        st.markdown("**Aditya Srivastava**  \nLead Developer & Founder  \n📩 [yeahboyadi@gmail.com](mailto:yeahboyadi@gmail.com)")
+        st.markdown("**Akshat Verma**  \nCo-Founder  \n📩 [akshat.v2166@gmail.com](mailto:akshat.v2166@gmail.com)")
     with c2:
-        st.markdown("### 💡 Suggest a Feature")
-        st.markdown(
-            "Ideas for new capabilities are welcome:  \n"
-            "- New case-matching algorithms  \n"
-            "- Additional report formats  \n"
-            "- Integrations (WhatsApp alerts, CRM sync, etc.)  \n\n"
-            "Send to **[yeahboyadi@gmail.com](mailto:yeahboyadi@gmail.com)** "
-            "or **[akshat.v2166@gmail.com](mailto:akshat.v2166@gmail.com)** "
-            "with subject line: `[FEATURE REQUEST] <your idea>`"
-        )
-        st.markdown("---")
-        st.markdown("### 🔒 Privacy & Data")
+        st.markdown("### 🔒 Privacy & Security")
         st.markdown(
             "All suspect profiling data is processed locally in your session.  \n"
             "No case data is stored on our servers without your explicit upload.  \n"
-            "Payments are verified manually — we never store card details."
+            "Payments are verified manually — we never store card or sensitive payment details directly."
         )
 
-    st.divider()
-    st.info(
-        "⏱️ **Response time:** Typically within 24 hours on weekdays.  \n"
-        "🌐 **Platform:** https://ibmhackath"
-    )
+# ── TAB 4: B2B AGENCY ACQUISITION (ADMIN ONLY) ─────────────────────────────────
+if st.session_state.is_admin and tab_outreach:
+    with tab_outreach:
+        st.subheader("📢 Agency Scraper & Automated Outreach Pipeline")
+        st.caption("Scrape verified detective agency contacts across India and dispatch automated cold email proposals.")
 
-# ══════════════════════════════════════════════════════════════════════════════
-# TAB 4 — B2B AGENCY ACQUISITION
-# ══════════════════════════════════════════════════════════════════════════════
-with tab_outreach:
-    st.subheader("📢 B2B Lead Scraper & Cold Email Outreach")
-    st.caption("Scrape target agency contact information and execute email campaigns.")
+        st.markdown("### 1. Indian Detective Agency Lead Database")
+        leads_df = pd.DataFrame(st.session_state.leads_data)
+        st.dataframe(leads_df, use_container_width=True)
 
-    col_kw, col_loc = st.columns(2)
-    with col_kw:
-        target_keyword = st.text_input("Target Keyword / Niche", value="Detective Agency", key="outreach_kw")
-    with col_loc:
-        target_location = st.text_input("Location", value="Delhi", key="outreach_loc")
+        st.divider()
 
-    if st.button("🔎 Scrape Leads", type="primary", use_container_width=True, key="btn_scrape_leads"):
-        with st.spinner("Scraping leads across web sources..."):
-            try:
-                scraped_data = scrape_leads_sync(target_keyword, target_location)
-                if scraped_data:
-                    st.success(f"Successfully scraped {len(scraped_data)} leads!")
-                    df_leads = pd.DataFrame(scraped_data)
-                    st.dataframe(df_leads, use_container_width=True)
-                else:
-                    st.info("No leads found matching your criteria.")
-            except Exception as e:
-                st.error(f"Scraping failed: {e}")
+        st.markdown("### 2. Cold Email Campaign Preview")
+        preview_agency = st.selectbox(
+            "Select Lead Agency to Preview Email",
+            options=[l["agency_name"] for l in st.session_state.leads_data]
+        )
+        selected_lead = next((l for l in st.session_state.leads_data if l["agency_name"] == preview_agency), st.session_state.leads_data[0])
 
-    st.divider()
-    st.markdown("### 📧 Email Dispatcher")
+        # Formatted Email Preview
+        sample_email_body = COLD_EMAIL_BODY.format(agency_name=selected_lead["agency_name"])
+        
+        with st.expander(f"✉️ Email Preview for: {selected_lead['agency_name']} ({selected_lead['email']})", expanded=True):
+            st.markdown(f"**To:** `{selected_lead['email']}`")
+            st.markdown(f"**Subject:** `{COLD_EMAIL_SUBJECT}`")
+            st.markdown("---")
+            st.text_area("Email Content", value=sample_email_body, height=360)
 
-    saved_leads = load_leads()
-    if saved_leads:
-        st.write(f"Loaded **{len(saved_leads)}** leads ready for dispatch.")
-        if st.button("🚀 Dispatch Cold Emails", use_container_width=True, key="btn_dispatch_emails"):
-            with st.spinner("Sending emails..."):
-                try:
-                    sent_count = send_cold_emails(saved_leads, COLD_EMAIL_SUBJECT, COLD_EMAIL_BODY)
-                    st.success(f"Successfully sent {sent_count} emails!")
-                except Exception as e:
-                    st.error(f"Email dispatch failed: {e}")
-    else:
-        st.info("No saved leads available to email. Perform a lead scrape first.") 
+        st.divider()
+
+        st.markdown("### 3. Email Dispatcher")
+        st.info(f"Loaded **{len(st.session_state.leads_data)} leads** ready for dispatch.")
+        if st.button("🚀 Dispatch Cold Emails", type="primary", use_container_width=True):
+            with st.spinner("Dispatching emails to agency contacts..."):
+                sent = send_cold_emails(st.session_state.leads_data)
+                st.success(f"✅ Dispatched outreach emails to {sent} agencies successfully!") 
