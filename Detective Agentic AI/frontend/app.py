@@ -500,36 +500,52 @@ with tab_profile:
                 with st.spinner("Analyzing traits against ChromaDB precedent vectors..."):
                     try:
                         name_str = suspect_name if suspect_name else "Unnamed Suspect"
+                        
+                        # Flexible agent caller to support different method signatures
+                        def run_agent_eval(a_obj):
+                            # Try standard positional call
+                            try:
+                                return a_obj.evaluate_suspect(name_str, behaviors)
+                            except TypeError:
+                                pass
+                            
+                            # Try named kwargs (mo_suspected / evidence_text)
+                            try:
+                                return a_obj.evaluate_suspect(
+                                    suspect_name=name_str,
+                                    mo_suspected=behaviors,
+                                    evidence_text=behaviors
+                                )
+                            except TypeError:
+                                pass
+                            
+                            # Fallback call
+                            return a_obj.evaluate_suspect(name_str, behaviors, behaviors)
+
                         try:
-                            res = agent.evaluate_suspect(
-                                name=name_str,
-                                behavior=behaviors,
-                                motive_suspected=behaviors,
-                                personality_notes="Observed via profiling dashboard."
-                            )
+                            res = run_agent_eval(agent)
                         except Exception:
                             load_agent.clear()
                             fresh_agent = load_agent()
-                            res = fresh_agent.evaluate_suspect(
-                                name=name_str,
-                                behavior=behaviors,
-                                motive_suspected=behaviors,
-                                personality_notes="Observed via profiling dashboard."
-                            )
+                            res = run_agent_eval(fresh_agent)
 
+                        # Successfully ran analysis -> Deduct 1 evaluation
                         if st.session_state.max_evals != "Unlimited":
                             st.session_state.evals_left = max(0, st.session_state.evals_left - 1)
 
                         st.session_state.latest_results = {
-                            "name":          name_str,
-                            "age":           age,
-                            "behaviors":     behaviors,
+                            "name":           name_str,
+                            "age":            age,
+                            "behaviors":      behaviors,
                             "tendency_score": res.get("tendency_score", "0%"),
-                            "risk_level":    res.get("risk_level", "UNKNOWN"),
-                            "matched_cases": res.get("similar_cases", []),
-                            "summary_text":  res.get("summary", ""),
-                            "timestamp":     time.time()
+                            "risk_level":     res.get("risk_level", "UNKNOWN"),
+                            "matched_cases":  res.get("similar_cases", []),
+                            "summary_text":   res.get("summary", ""),
+                            "timestamp":      time.time()
                         }
+                        
+                        st.rerun()  # Instantly update sidebar credit count
+
                     except Exception as err:
                         st.error(f"Analysis failed: {err}")
 
