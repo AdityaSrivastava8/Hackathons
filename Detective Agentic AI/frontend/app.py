@@ -504,7 +504,7 @@ with tab_profile:
                             res = agent.evaluate_suspect(
                                 name=name_str,
                                 behavior=behaviors,
-                                mo_suspected=behaviors,
+                                motive_suspected=behaviors,
                                 personality_notes="Observed via profiling dashboard."
                             )
                         except Exception:
@@ -513,7 +513,7 @@ with tab_profile:
                             res = fresh_agent.evaluate_suspect(
                                 name=name_str,
                                 behavior=behaviors,
-                                mo_suspected=behaviors,
+                                motive_suspected=behaviors,
                                 personality_notes="Observed via profiling dashboard."
                             )
 
@@ -747,7 +747,7 @@ with tab_contact:
     st.divider()
     st.info(
         "⏱️ **Response time:** Typically within 24 hours on weekdays.  \n"
-        "🌐 **Platform:** https://detective-ai.streamlit.app"
+        "🌐 **Platform:** https://ibmhackathon2026-uzj9dxbwnxgkcdffvztpfa.streamlit.app/"
     )
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -988,4 +988,4 @@ if tab_outreach is not None:
                         for lead in updated:
                             if lead.get("agency_name") in contacted_names:
                                 lead["status"] = "Contacted"
-                        save_leads(updated)
+                        save_leads(updated) 
