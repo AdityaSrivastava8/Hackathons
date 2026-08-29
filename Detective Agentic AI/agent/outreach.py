@@ -1,30 +1,53 @@
 """
 agent/outreach.py
-B2B Lead Scraper — Multi-engine fallback strategy (works on Streamlit Cloud)
-+ Cold Email Engine (yagmail)
 
-Engine priority:
-  1. Overpass API (OpenStreetMap) — real business data, completely free, no auth
-  2. Nominatim geocoding + local business lookup
-  3. DuckDuckGo Instant Answer API — no auth, no captcha
-  4. Wikipedia/DBpedia open-data search
-  5. Smart seed generator — deterministic placeholder leads from keyword+location
+B2B Lead Scraper + Gmail Cold Email Engine.
+
+Lead sources:
+    1. OpenStreetMap / Overpass
+    2. DuckDuckGo Instant Answer API
+    3. Wikipedia OpenSearch
+    4. Generated leads (manual verification only)
+
+Email:
+    Gmail SMTP over SSL using a Gmail App Password.
+
+IMPORTANT:
+Generated/placeholder leads are NEVER automatically emailed.
+Only leads with a real, verified-looking email address can be sent.
 """
 
 import json
 import os
 import re
 import time
+import smtplib
+import ssl
 import urllib.parse
+from email.message import EmailMessage
 from typing import List, Dict
 
-# ── Constants ──────────────────────────────────────────────────────────────────
-DATA_DIR   = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data"))
+
+# ══════════════════════════════════════════════════════════════════════════════
+# CONSTANTS
+# ══════════════════════════════════════════════════════════════════════════════
+
+DATA_DIR = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "data")
+)
+
 LEADS_FILE = os.path.join(DATA_DIR, "leads.json")
 
 SENDER_EMAIL = "yeahboyadi@gmail.com"
 
-COLD_EMAIL_SUBJECT = "25 Free AI Profiling Credits for {agency_name} — Detective Agentic AI"
+APP_URL = (
+    "https://ibmhackathon2026-uzj9dxbwnxgkcdffvztpfa.streamlit.app/"
+)
+
+COLD_EMAIL_SUBJECT = (
+    "25 Free AI Profiling Credits for {agency_name} "
+    "— Detective Agentic AI"
+)
 
 COLD_EMAIL_BODY = """Hello {agency_name},
 
@@ -37,7 +60,8 @@ What we offer:
 - Flexible pay-as-you-go plans starting at Rs. 500 (Starter / 100 evaluations)
 
 Claim your 25 FREE Profiling Evaluations now — no credit card required:
-https://detective-ai.streamlit.app
+
+{app_url}
 
 If you have any questions or would like a live walkthrough, simply reply to this email.
 
@@ -47,126 +71,275 @@ Aditya Srivastava          |  Akshat Verma
 Lead Developer & Founder   |  Co-Founder
 yeahboyadi@gmail.com       |  akshat.v2166@gmail.com
 
-Detective Agentic AI — https://detective-ai.streamlit.app"""
+Detective Agentic AI
+{app_url}
+"""
 
 
-# ── Persistence helpers ────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# PERSISTENCE
+# ══════════════════════════════════════════════════════════════════════════════
 
 def _ensure_data_dir() -> None:
+    """Create the data directory when necessary."""
     os.makedirs(DATA_DIR, exist_ok=True)
 
 
 def load_leads() -> List[Dict]:
-    """Load persisted leads from disk."""
+    """Load persisted leads from leads.json."""
     _ensure_data_dir()
+
     if not os.path.exists(LEADS_FILE):
         return []
+
     try:
-        with open(LEADS_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
+        with open(
+            LEADS_FILE,
+            "r",
+            encoding="utf-8"
+        ) as f:
+            data = json.load(f)
+
+        return data if isinstance(data, list) else []
+
+    except (OSError, json.JSONDecodeError):
         return []
 
 
 def save_leads(leads: List[Dict]) -> None:
-    """Persist leads list to disk."""
+    """Persist leads to leads.json."""
     _ensure_data_dir()
-    with open(LEADS_FILE, "w", encoding="utf-8") as f:
-        json.dump(leads, f, indent=2, ensure_ascii=False)
+
+    with open(
+        LEADS_FILE,
+        "w",
+        encoding="utf-8"
+    ) as f:
+        json.dump(
+            leads,
+            f,
+            indent=2,
+            ensure_ascii=False
+        )
 
 
-# ── Shared HTTP session ────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# HTTP
+# ══════════════════════════════════════════════════════════════════════════════
 
 _STEALTH_HEADERS = {
-    "User-Agent":      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                       "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-    "Accept":          "application/json, text/html,application/xhtml+xml;q=0.9,*/*;q=0.8",
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Accept": (
+        "application/json, text/html, "
+        "application/xhtml+xml;q=0.9,*/*;q=0.8"
+    ),
     "Accept-Language": "en-IN,en;q=0.9,hi;q=0.8",
-    "Accept-Encoding": "gzip, deflate, br",
-    "Connection":      "keep-alive",
-    "DNT":             "1",
-    "Referer":         "https://www.google.com/",
 }
 
 
-def _get(url: str, params: dict = None, timeout: int = 15) -> "requests.Response":
+def _get(
+    url: str,
+    params: dict = None,
+    timeout: int = 15
+):
+    """Perform a GET request with safe defaults."""
     import requests
-    return requests.get(url, params=params, headers=_STEALTH_HEADERS,
-                        timeout=timeout, allow_redirects=True)
+
+    return requests.get(
+        url,
+        params=params,
+        headers=_STEALTH_HEADERS,
+        timeout=timeout,
+        allow_redirects=True,
+    )
 
 
 def _slug(text: str) -> str:
-    """Clean text to alphanumeric slug for email generation."""
-    return re.sub(r"[^a-z0-9]", "", text.lower())
+    """Create a simple alphanumeric slug."""
+    return re.sub(
+        r"[^a-z0-9]",
+        "",
+        text.lower()
+    )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# ENGINE 1 — Overpass API (OpenStreetMap)
-# Free, no auth, no captcha, returns real POI business data
+# EMAIL VALIDATION
 # ══════════════════════════════════════════════════════════════════════════════
 
-# Map common keyword phrases → OSM amenity/shop tags
+_EMAIL_PATTERN = re.compile(
+    r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@"
+    r"[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$"
+)
+
+
+def _is_valid_email(email: str) -> bool:
+    """
+    Basic email validation.
+
+    This checks formatting only. It does NOT guarantee that
+    the mailbox actually exists.
+    """
+    if not email:
+        return False
+
+    email = email.strip()
+
+    if len(email) > 254:
+        return False
+
+    return bool(
+        _EMAIL_PATTERN.fullmatch(email)
+    )
+
+
+def _is_generated_lead(lead: Dict) -> bool:
+    """
+    Generated leads are placeholders and must never be
+    automatically emailed.
+    """
+    source = str(
+        lead.get("source", "")
+    ).lower()
+
+    return (
+        "generated" in source
+        or "verify manually" in source
+    )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# ENGINE 1 — OPENSTREETMAP / OVERPASS
+# ══════════════════════════════════════════════════════════════════════════════
+
 _OSM_TAG_MAP = {
-    "detective":     [("office", "detective"), ("office", "investigator"), ("office", "lawyer")],
-    "private":       [("office", "detective"), ("office", "investigator")],
-    "investigat":    [("office", "detective"), ("office", "investigator")],
-    "security":      [("office", "security"), ("shop", "security")],
-    "legal":         [("office", "lawyer"), ("office", "advocate")],
-    "advocate":      [("office", "lawyer"), ("office", "advocate")],
-    "police":        [("amenity", "police")],
+    "detective": [
+        ("office", "detective"),
+        ("office", "investigator"),
+        ("office", "lawyer"),
+    ],
+    "private": [
+        ("office", "detective"),
+        ("office", "investigator"),
+    ],
+    "investigat": [
+        ("office", "detective"),
+        ("office", "investigator"),
+    ],
+    "security": [
+        ("office", "security"),
+        ("shop", "security"),
+    ],
+    "legal": [
+        ("office", "lawyer"),
+        ("office", "advocate"),
+    ],
+    "advocate": [
+        ("office", "lawyer"),
+        ("office", "advocate"),
+    ],
+    "police": [
+        ("amenity", "police"),
+    ],
 }
 
-def _osm_tags_for_keyword(keyword: str) -> List[tuple]:
+
+def _osm_tags_for_keyword(
+    keyword: str
+) -> List[tuple]:
+    """Return OSM tag filters for a keyword."""
     kw = keyword.lower()
+
     for key, tags in _OSM_TAG_MAP.items():
         if key in kw:
             return tags
-    # generic fallback: search by name
+
     return []
 
 
 def _geocode_location(location: str):
-    """Return (lat, lon, display_name) for a location string using Nominatim."""
+    """Return latitude, longitude and display name."""
     try:
-        resp = _get(
+        response = _get(
             "https://nominatim.openstreetmap.org/search",
-            params={"q": location, "format": "json", "limit": 1},
+            params={
+                "q": location,
+                "format": "json",
+                "limit": 1,
+            },
             timeout=10,
         )
-        data = resp.json()
+
+        response.raise_for_status()
+
+        data = response.json()
+
         if data:
-            return float(data[0]["lat"]), float(data[0]["lon"]), data[0].get("display_name", location)
+            return (
+                float(data[0]["lat"]),
+                float(data[0]["lon"]),
+                data[0].get(
+                    "display_name",
+                    location
+                ),
+            )
+
     except Exception:
         pass
+
     return None, None, location
 
 
-def _overpass_search(keyword: str, location: str, max_results: int) -> List[Dict]:
-    """
-    Query Overpass API for businesses matching keyword near location.
-    Completely free, no authentication, works on any server IP.
-    """
+def _overpass_search(
+    keyword: str,
+    location: str,
+    max_results: int
+) -> List[Dict]:
+
+    """Search OpenStreetMap businesses around a location."""
+
     lat, lon, _ = _geocode_location(location)
-    if lat is None:
+
+    if lat is None or lon is None:
         return []
 
-    leads: List[Dict] = []
-    tags  = _osm_tags_for_keyword(keyword)
+    leads = []
+    tags = _osm_tags_for_keyword(keyword)
 
-    # Build Overpass QL query — search 25km radius
-    radius = 25000  # metres
+    radius = 25000
+
     if tags:
+
         tag_queries = "\n  ".join(
-            f'node["{k}"="{v}"](around:{radius},{lat},{lon});'
-            f'\n  way["{k}"="{v}"](around:{radius},{lat},{lon});'
-            for k, v in tags
+            (
+                f'node["{key}"="{value}"]'
+                f'(around:{radius},{lat},{lon});\n'
+                f'  way["{key}"="{value}"]'
+                f'(around:{radius},{lat},{lon});'
+            )
+            for key, value in tags
         )
+
     else:
-        # Name-based search when no tag mapping exists
-        kw_clean = keyword.replace('"', "")
+
+        kw_clean = re.sub(
+            r'["\\]',
+            "",
+            keyword
+        )
+
+        # Escape regex-special characters.
+        kw_clean = re.escape(kw_clean)
+
         tag_queries = (
-            f'node["name"~"{kw_clean}",i](around:{radius},{lat},{lon});\n  '
-            f'way["name"~"{kw_clean}",i](around:{radius},{lat},{lon});'
+            f'node["name"~"{kw_clean}",i]'
+            f'(around:{radius},{lat},{lon});\n'
+            f'  way["name"~"{kw_clean}",i]'
+            f'(around:{radius},{lat},{lon});'
         )
 
     overpass_query = f"""
@@ -178,52 +351,82 @@ out center {max_results * 3};
 """
 
     try:
-        resp = _get(
+
+        response = _get(
             "https://overpass-api.de/api/interpreter",
-            params={"data": overpass_query},
+            params={
+                "data": overpass_query
+            },
             timeout=30,
         )
-        data = resp.json()
-        seen: set = set()
 
-        for element in data.get("elements", []):
+        response.raise_for_status()
+
+        data = response.json()
+
+        seen = set()
+
+        for element in data.get(
+            "elements",
+            []
+        ):
+
             if len(leads) >= max_results:
                 break
-            tags_el = element.get("tags", {})
 
-            name = tags_el.get("name") or tags_el.get("operator") or tags_el.get("brand")
-            if not name or name in seen or len(name) < 3:
+            tags_el = element.get(
+                "tags",
+                {}
+            )
+
+            name = (
+                tags_el.get("name")
+                or tags_el.get("operator")
+                or tags_el.get("brand")
+            )
+
+            if (
+                not name
+                or name in seen
+                or len(name) < 3
+            ):
                 continue
+
             seen.add(name)
 
             website = (
-                tags_el.get("website") or
-                tags_el.get("contact:website") or
-                tags_el.get("url") or ""
-            )
-            phone = tags_el.get("phone") or tags_el.get("contact:phone") or ""
-            addr_city = (
-                tags_el.get("addr:city") or
-                tags_el.get("addr:suburb") or
-                location
+                tags_el.get("website")
+                or tags_el.get("contact:website")
+                or tags_el.get("url")
+                or ""
             )
 
-            # Derive email from website domain or name slug
-            domain = re.sub(r"https?://", "", website).split("/")[0].strip()
-            email  = (
-                tags_el.get("contact:email") or
-                tags_el.get("email") or
-                (f"info@{domain}" if domain and "." in domain else f"info@{_slug(name)}.com")
+            phone = (
+                tags_el.get("phone")
+                or tags_el.get("contact:phone")
+                or ""
+            )
+
+            city = (
+                tags_el.get("addr:city")
+                or tags_el.get("addr:suburb")
+                or location
+            )
+
+            contact_email = (
+                tags_el.get("contact:email")
+                or tags_el.get("email")
+                or ""
             )
 
             leads.append({
-                "agency_name":   name,
-                "location":      addr_city,
-                "contact_email": email,
-                "website":       website,
-                "phone":         phone,
-                "source":        "OpenStreetMap",
-                "status":        "Prospect",
+                "agency_name": name,
+                "location": city,
+                "contact_email": contact_email,
+                "website": website,
+                "phone": phone,
+                "source": "OpenStreetMap",
+                "status": "Prospect",
             })
 
     except Exception:
@@ -233,58 +436,111 @@ out center {max_results * 3};
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# ENGINE 2 — DuckDuckGo Instant Answer API
-# No auth, no captcha, returns structured JSON
+# ENGINE 2 — DUCKDUCKGO
 # ══════════════════════════════════════════════════════════════════════════════
 
-def _duckduckgo_search(keyword: str, location: str, max_results: int) -> List[Dict]:
-    """
-    Use DuckDuckGo's Instant Answer API to find related topics/topics.
-    Returns partial leads enriched with name + website.
-    """
+def _duckduckgo_search(
+    keyword: str,
+    location: str,
+    max_results: int
+) -> List[Dict]:
+
+    """Search DuckDuckGo Instant Answer API."""
+
     query = f"{keyword} agencies {location}"
-    leads: List[Dict] = []
+
+    leads = []
 
     try:
-        resp = _get(
+
+        response = _get(
             "https://api.duckduckgo.com/",
-            params={"q": query, "format": "json", "no_html": "1", "skip_disambig": "1"},
+            params={
+                "q": query,
+                "format": "json",
+                "no_html": "1",
+                "skip_disambig": "1",
+            },
             timeout=15,
         )
-        data  = resp.json()
-        seen: set = set()
 
-        # RelatedTopics contains real entity names
-        topics = data.get("RelatedTopics", []) + data.get("Results", [])
-        for item in topics:
+        response.raise_for_status()
+
+        data = response.json()
+
+        topics = list(
+            data.get(
+                "RelatedTopics",
+                []
+            )
+        )
+
+        topics.extend(
+            data.get(
+                "Results",
+                []
+            )
+        )
+
+        seen = set()
+        index = 0
+
+        while index < len(topics):
+
             if len(leads) >= max_results:
                 break
-            if isinstance(item, dict) and "Topics" in item:
-                # Nested topic group — flatten
-                topics.extend(item["Topics"])
+
+            item = topics[index]
+            index += 1
+
+            if not isinstance(item, dict):
                 continue
 
-            text = item.get("Text", "") or item.get("Result", "")
-            url  = item.get("FirstURL", "") or item.get("url", "")
+            nested = item.get("Topics")
+
+            if isinstance(
+                nested,
+                list
+            ):
+                topics.extend(nested)
+                continue
+
+            text = (
+                item.get("Text", "")
+                or item.get("Result", "")
+            )
+
+            url = (
+                item.get("FirstURL", "")
+                or item.get("url", "")
+            )
+
             if not text or not url:
                 continue
 
-            # First sentence up to " - " is usually the entity name
-            name = text.split(" - ")[0].split(". ")[0].strip()
-            if not name or name in seen or len(name) < 4:
+            name = (
+                text
+                .split(" - ")[0]
+                .split(". ")[0]
+                .strip()
+            )
+
+            if (
+                not name
+                or name in seen
+                or len(name) < 4
+            ):
                 continue
+
             seen.add(name)
 
-            domain = re.sub(r"https?://", "", url).split("/")[0].strip()
-            email  = f"info@{domain}" if domain and "." in domain else f"info@{_slug(name)}.com"
-
             leads.append({
-                "agency_name":   name,
-                "location":      location,
-                "contact_email": email,
-                "website":       url,
-                "source":        "DuckDuckGo",
-                "status":        "Prospect",
+                "agency_name": name,
+                "location": location,
+                "contact_email": "",
+                "website": url,
+                "source": "DuckDuckGo",
+                "status": "Prospect",
             })
 
     except Exception:
@@ -294,53 +550,92 @@ def _duckduckgo_search(keyword: str, location: str, max_results: int) -> List[Di
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# ENGINE 3 — Wikipedia/DBpedia Open Search
-# Returns known named entities (agencies, organisations)
+# ENGINE 3 — WIKIPEDIA
 # ══════════════════════════════════════════════════════════════════════════════
 
-def _wikipedia_search(keyword: str, location: str, max_results: int) -> List[Dict]:
-    """Search Wikipedia OpenSearch API for agency-related articles."""
+def _wikipedia_search(
+    keyword: str,
+    location: str,
+    max_results: int
+) -> List[Dict]:
+
+    """Search Wikipedia OpenSearch for relevant entities."""
+
     query = f"{keyword} {location}"
-    leads: List[Dict] = []
+
+    leads = []
 
     try:
-        resp = _get(
+
+        response = _get(
             "https://en.wikipedia.org/w/api.php",
             params={
                 "action": "opensearch",
                 "search": query,
-                "limit":  str(max_results * 2),
+                "limit": str(max_results * 2),
                 "namespace": "0",
                 "format": "json",
             },
             timeout=10,
         )
-        data = resp.json()
-        # data = [query, [titles], [descriptions], [urls]]
-        if len(data) >= 4:
-            titles = data[1]
-            urls   = data[3]
-            seen: set = set()
 
-            for name, url in zip(titles, urls):
-                if len(leads) >= max_results:
-                    break
-                if not name or name in seen:
-                    continue
-                # Filter to relevant entries
-                kw_words = keyword.lower().split()
-                if not any(w in name.lower() for w in kw_words + ["detective", "invest", "agency", "security"]):
-                    continue
-                seen.add(name)
-                slug  = _slug(name)
-                leads.append({
-                    "agency_name":   name,
-                    "location":      location,
-                    "contact_email": f"info@{slug}.com",
-                    "website":       url,
-                    "source":        "Wikipedia",
-                    "status":        "Prospect",
-                })
+        response.raise_for_status()
+
+        data = response.json()
+
+        if len(data) < 4:
+            return []
+
+        titles = data[1]
+        urls = data[3]
+
+        seen = set()
+
+        for name, url in zip(
+            titles,
+            urls
+        ):
+
+            if len(leads) >= max_results:
+                break
+
+            if (
+                not name
+                or name in seen
+            ):
+                continue
+
+            kw_words = (
+                keyword.lower().split()
+            )
+
+            relevant = any(
+                word in name.lower()
+                for word in (
+                    kw_words
+                    + [
+                        "detective",
+                        "invest",
+                        "agency",
+                        "security",
+                    ]
+                )
+            )
+
+            if not relevant:
+                continue
+
+            seen.add(name)
+
+            leads.append({
+                "agency_name": name,
+                "location": location,
+                "contact_email": "",
+                "website": url,
+                "source": "Wikipedia",
+                "status": "Prospect",
+            })
+
     except Exception:
         return []
 
@@ -348,178 +643,265 @@ def _wikipedia_search(keyword: str, location: str, max_results: int) -> List[Dic
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# ENGINE 4 — Smart Seed Generator (deterministic fallback)
-# When all live sources are blocked, generate realistic placeholder leads
-# that can be manually verified and email-corrected before dispatch.
+# ENGINE 4 — GENERATED FALLBACK
 # ══════════════════════════════════════════════════════════════════════════════
 
 _AGENCY_SUFFIXES = [
-    "Detective Agency", "Investigation Services", "Private Investigators",
-    "Security Solutions", "Intellect Detectives", "Inquiry Bureau",
-    "Surveillance Experts", "Probe Detective Services", "Field Investigations",
-    "Eagle Eye Detectives", "Alpha Investigation", "Shield Detectives",
-    "Nationwide Investigators", "Hawk Surveillance", "Trustworthy Detectives",
-    "Guardian Investigation", "Precision Detectives", "City Probe Services",
-    "Metro Investigation Bureau", "Pioneer Detective Agency",
+    "Detective Agency",
+    "Investigation Services",
+    "Private Investigators",
+    "Security Solutions",
+    "Intellect Detectives",
+    "Inquiry Bureau",
+    "Surveillance Experts",
+    "Probe Detective Services",
+    "Field Investigations",
+    "Eagle Eye Detectives",
+    "Alpha Investigation",
+    "Shield Detectives",
+    "Nationwide Investigators",
+    "Hawk Surveillance",
+    "Trustworthy Detectives",
+    "Guardian Investigation",
+    "Precision Detectives",
+    "City Probe Services",
+    "Metro Investigation Bureau",
+    "Pioneer Detective Agency",
 ]
 
-def _seed_leads(keyword: str, location: str, max_results: int) -> List[Dict]:
-    """
-    Generate deterministic placeholder leads based on keyword + location.
-    Names are realistic and consistent — same input always produces same output.
-    Contact emails are in standard `info@` format ready for manual verification.
-    """
-    loc_clean   = location.replace(",", "").strip()
-    loc_words   = loc_clean.split()
-    loc_short   = loc_words[0] if loc_words else loc_clean
 
-    leads: List[Dict] = []
-    used: set = set()
+def _seed_leads(
+    keyword: str,
+    location: str,
+    max_results: int
+) -> List[Dict]:
 
-    for i, suffix in enumerate(_AGENCY_SUFFIXES):
+    """
+    Generate placeholder leads.
+
+    IMPORTANT:
+    These leads deliberately have NO email address.
+    They require manual verification before outreach.
+    """
+
+    loc_clean = location.replace(
+        ",",
+        ""
+    ).strip()
+
+    loc_words = loc_clean.split()
+
+    loc_short = (
+        loc_words[0]
+        if loc_words
+        else "Local"
+    )
+
+    leads = []
+    used = set()
+
+    for suffix in _AGENCY_SUFFIXES:
+
         if len(leads) >= max_results:
             break
-        name = f"{loc_short} {suffix}"
+
+        name = (
+            f"{loc_short} {suffix}"
+        )
+
         if name in used:
             continue
+
         used.add(name)
-        slug  = _slug(name)
+
         leads.append({
-            "agency_name":   name,
-            "location":      location,
-            "contact_email": f"info@{slug}.com",
-            "website":       "",
-            "source":        "Generated (Verify Manually)",
-            "status":        "Prospect",
+            "agency_name": name,
+            "location": location,
+            "contact_email": "",
+            "website": "",
+            "source": "Generated (Verify Manually)",
+            "status": "Needs Verification",
         })
 
     return leads
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# MAIN SCRAPER — 4-engine waterfall
+# MAIN SCRAPER
 # ══════════════════════════════════════════════════════════════════════════════
 
-def scrape_leads_sync(keyword: str, location: str, max_results: int = 20) -> List[Dict]:
-    """
-    Multi-engine B2B lead scraper. Tries each engine in order until enough
-    leads are collected. Always returns at least seed-generated leads so the
-    admin can manually verify and update emails before dispatching.
+def scrape_leads_sync(
+    keyword: str,
+    location: str,
+    max_results: int = 20
+) -> List[Dict]:
 
-    Engine order:
-        1. Overpass API / OpenStreetMap  (real data, no auth, no captcha)
-        2. DuckDuckGo Instant Answer API (no auth, no captcha)
-        3. Wikipedia OpenSearch API      (named entities)
-        4. Smart Seed Generator          (placeholder leads, always works)
     """
-    collected: List[Dict] = []
+    Multi-source B2B lead scraper.
 
-    # ── Engine 1: Overpass / OSM ───────────────────────────────────────────
+    Real sources are tried first. Generated leads are only
+    placeholders for manual verification.
+
+    Returns newly-added leads when possible.
+    """
+
+    keyword = str(keyword or "").strip()
+    location = str(location or "").strip()
+
+    if not keyword or not location:
+        return []
+
     try:
-        osm = _overpass_search(keyword, location, max_results)
-        collected.extend(osm)
+        max_results = max(
+            1,
+            int(max_results)
+        )
+    except (TypeError, ValueError):
+        max_results = 20
+
+    collected = []
+
+    # ── Engine 1: OpenStreetMap ────────────────────────────────────────────
+
+    try:
+        collected.extend(
+            _overpass_search(
+                keyword,
+                location,
+                max_results
+            )
+        )
     except Exception:
         pass
 
     # ── Engine 2: DuckDuckGo ───────────────────────────────────────────────
+
     if len(collected) < max_results:
+
         try:
-            ddg = _duckduckgo_search(keyword, location, max_results - len(collected))
-            collected.extend(ddg)
+            collected.extend(
+                _duckduckgo_search(
+                    keyword,
+                    location,
+                    max_results - len(collected)
+                )
+            )
         except Exception:
             pass
 
     # ── Engine 3: Wikipedia ────────────────────────────────────────────────
+
     if len(collected) < max_results:
+
         try:
-            wiki = _wikipedia_search(keyword, location, max_results - len(collected))
-            collected.extend(wiki)
+            collected.extend(
+                _wikipedia_search(
+                    keyword,
+                    location,
+                    max_results - len(collected)
+                )
+            )
         except Exception:
             pass
 
-    # ── Engine 4: Seed generator (always fills remaining quota) ───────────
-    if len(collected) < max_results:
-        seed = _seed_leads(keyword, location, max_results - len(collected))
-        collected.extend(seed)
+    # ── Engine 4: Manual-verification placeholders ─────────────────────────
 
-    # ── Dedup by name+location, cap at max_results ─────────────────────────
-    seen_keys: set = set()
-    unique: List[Dict] = []
+    if len(collected) < max_results:
+
+        collected.extend(
+            _seed_leads(
+                keyword,
+                location,
+                max_results - len(collected)
+            )
+        )
+
+    # ── Deduplicate ────────────────────────────────────────────────────────
+
+    seen_keys = set()
+    unique = []
+
     for lead in collected:
-        key = (lead.get("agency_name", ""), lead.get("location", ""))
-        if key not in seen_keys:
-            seen_keys.add(key)
-            unique.append(lead)
+
+        key = (
+            str(
+                lead.get(
+                    "agency_name",
+                    ""
+                )
+            ).strip().lower(),
+
+            str(
+                lead.get(
+                    "location",
+                    ""
+                )
+            ).strip().lower(),
+        )
+
+        if key in seen_keys:
+            continue
+
+        seen_keys.add(key)
+        unique.append(lead)
+
         if len(unique) >= max_results:
             break
 
-    # ── Merge into leads.json ──────────────────────────────────────────────
-    # Drop any stale leads that have empty or missing emails before merging
-    existing      = [l for l in load_leads() if l.get("contact_email", "").strip()]
-    existing_keys = {(l["agency_name"], l["location"]) for l in existing}
-    merged        = existing[:]
-    added: List[Dict] = []
+    # ── Merge into persistent storage ──────────────────────────────────────
+
+    existing = load_leads()
+
+    existing_keys = {
+        (
+            str(
+                lead.get(
+                    "agency_name",
+                    ""
+                )
+            ).strip().lower(),
+
+            str(
+                lead.get(
+                    "location",
+                    ""
+                )
+            ).strip().lower(),
+        )
+        for lead in existing
+    }
+
+    merged = existing[:]
+    added = []
 
     for lead in unique:
-        key = (lead["agency_name"], lead["location"])
+
+        key = (
+            str(
+                lead.get(
+                    "agency_name",
+                    ""
+                )
+            ).strip().lower(),
+
+            str(
+                lead.get(
+                    "location",
+                    ""
+                )
+            ).strip().lower(),
+        )
+
         if key not in existing_keys:
+
             merged.append(lead)
             added.append(lead)
+
             existing_keys.add(key)
 
     save_leads(merged)
 
-    # Always return something — never show the "blocked" error again
     return added if added else unique
 
 
-# ── Email Engine ───────────────────────────────────────────────────────────────
-
-def send_cold_emails(
-    leads: List[Dict],
-    app_password: str,
-    subject_template: str = COLD_EMAIL_SUBJECT,
-    body_template: str = COLD_EMAIL_BODY,
-    delay_seconds: int = 5,
-    progress_callback=None,
-) -> List[Dict]:
-    """
-    Send personalised cold emails to each lead via yagmail (Gmail SMTP).
-    progress_callback(idx, total, agency_name, status) is called after each send.
-    Returns a list of result dicts.
-    """
-    import yagmail
-
-    results: List[Dict] = []
-    total = len(leads)
-
-    try:
-        yag = yagmail.SMTP(SENDER_EMAIL, app_password)
-    except Exception as e:
-        return [{"agency_name": "ALL", "status": "INIT_FAIL", "error": str(e)}]
-
-    for idx, lead in enumerate(leads, 1):
-        agency    = lead.get("agency_name", "Agency")
-        location  = lead.get("location", "your region")
-        recipient = lead.get("contact_email", "")
-
-        if not recipient or "@" not in recipient:
-            result = {"agency_name": agency, "status": "SKIPPED", "error": "No valid email"}
-        else:
-            subject = subject_template.format(agency_name=agency, location=location)
-            body    = body_template.format(agency_name=agency, location=location)
-            try:
-                yag.send(to=recipient, subject=subject, contents=body)
-                result = {"agency_name": agency, "recipient": recipient, "status": "SENT",   "error": ""}
-            except Exception as e:
-                result = {"agency_name": agency, "recipient": recipient, "status": "FAILED", "error": str(e)}
-
-        results.append(result)
-
-        if progress_callback:
-            progress_callback(idx, total, agency, result["status"], result.get("error", ""))
-
-        if idx < total:
-            time.sleep(delay_seconds)
-
-    return results
+# ════════════════════════════════════ 
