@@ -66,7 +66,7 @@ Best regards,
 
 Aditya Srivastava          |  Akshat Verma
 Lead Developer & Founder   |  Co-Founder
-yeahboyadi@gmail.com       |  akshat.v2166@gmail.com
+yeahboyadi@gmail.com        |  akshat.v2166@gmail.com
 
 Detective Agentic AI — https://detective-ai.streamlit.app
 """
@@ -322,10 +322,7 @@ def _overpass_search(
     location: str,
     max_results: int
 ) -> List[Dict]:
-
-    """
-    Search OpenStreetMap businesses/organisations around a location.
-    """
+    """Search OpenStreetMap businesses/organisations around a location."""
     if max_results <= 0:
         return []
 
@@ -341,21 +338,16 @@ def _overpass_search(
     query_parts = []
 
     if tags:
-
         for key, value in tags:
-
             query_parts.append(
                 f'node["{key}"="{value}"]'
                 f'(around:{radius},{lat},{lon});'
             )
-
             query_parts.append(
                 f'way["{key}"="{value}"]'
                 f'(around:{radius},{lat},{lon});'
             )
-
     else:
-
         keyword_clean = re.sub(
             r'["\\]',
             "",
@@ -365,15 +357,12 @@ def _overpass_search(
         if not keyword_clean:
             return []
 
-        # Keep the regular expression simple because it is sent
-        # to an external Overpass service.
         keyword_clean = keyword_clean[:80]
 
         query_parts.append(
             f'node["name"~"{keyword_clean}",i]'
             f'(around:{radius},{lat},{lon});'
         )
-
         query_parts.append(
             f'way["name"~"{keyword_clean}",i]'
             f'(around:{radius},{lat},{lon});'
@@ -388,7 +377,6 @@ def _overpass_search(
     )
 
     try:
-
         response = _get(
             "https://overpass-api.de/api/interpreter",
             params={"data": overpass_query},
@@ -406,7 +394,6 @@ def _overpass_search(
     seen = set()
 
     for element in data.get("elements", []):
-
         if len(leads) >= max_results:
             break
 
@@ -459,10 +446,8 @@ def _overpass_search(
         domain = _domain_from_url(website)
 
         if not email:
-
             if domain:
                 email = f"info@{domain}"
-
             else:
                 email = _generated_email(name)
 
@@ -498,7 +483,6 @@ def _duckduckgo_search(
     )
 
     try:
-
         response = _get(
             "https://api.duckduckgo.com/",
             params={
@@ -526,7 +510,6 @@ def _duckduckgo_search(
     index = 0
 
     while index < len(topics) and len(leads) < max_results:
-
         item = topics[index]
         index += 1
 
@@ -611,7 +594,6 @@ def _wikipedia_search(
     )
 
     try:
-
         response = _get(
             "https://en.wikipedia.org/w/api.php",
             params={
@@ -655,7 +637,6 @@ def _wikipedia_search(
     ]
 
     for name, url in zip(titles, urls):
-
         if len(leads) >= max_results:
             break
 
@@ -726,12 +707,7 @@ def _seed_leads(
     location: str,
     max_results: int
 ) -> List[Dict]:
-    """
-    Generate deterministic fallback leads.
-
-    These are explicitly marked as generated and should be
-    manually verified before outreach.
-    """
+    """Generate deterministic fallback leads."""
     if max_results <= 0:
         return []
 
@@ -752,7 +728,6 @@ def _seed_leads(
     used = set()
 
     for suffix in _AGENCY_SUFFIXES:
-
         if len(leads) >= max_results:
             break
 
@@ -787,13 +762,7 @@ def scrape_leads_sync(
     location: str,
     max_results: int = 20
 ) -> List[Dict]:
-    """
-    Run the lead-discovery waterfall.
-
-    The function always attempts to return useful results, including
-    generated fallback leads when live sources do not provide enough
-    results.
-    """
+    """Run the lead-discovery waterfall."""
     try:
         max_results = int(max_results)
     except (TypeError, ValueError):
@@ -809,10 +778,7 @@ def scrape_leads_sync(
 
     collected: List[Dict] = []
 
-    # -------------------------------------------------------------------------
     # Engine 1: OpenStreetMap / Overpass
-    # -------------------------------------------------------------------------
-
     try:
         collected.extend(
             _overpass_search(
@@ -824,12 +790,8 @@ def scrape_leads_sync(
     except Exception:
         pass
 
-    # -------------------------------------------------------------------------
     # Engine 2: DuckDuckGo
-    # -------------------------------------------------------------------------
-
     if len(collected) < max_results:
-
         try:
             collected.extend(
                 _duckduckgo_search(
@@ -841,12 +803,8 @@ def scrape_leads_sync(
         except Exception:
             pass
 
-    # -------------------------------------------------------------------------
     # Engine 3: Wikipedia
-    # -------------------------------------------------------------------------
-
     if len(collected) < max_results:
-
         try:
             collected.extend(
                 _wikipedia_search(
@@ -858,12 +816,8 @@ def scrape_leads_sync(
         except Exception:
             pass
 
-    # -------------------------------------------------------------------------
     # Engine 4: deterministic fallback
-    # -------------------------------------------------------------------------
-
     if len(collected) < max_results:
-
         try:
             collected.extend(
                 _seed_leads(
@@ -875,15 +829,11 @@ def scrape_leads_sync(
         except Exception:
             pass
 
-    # -------------------------------------------------------------------------
     # Deduplicate
-    # -------------------------------------------------------------------------
-
     unique: List[Dict] = []
     seen_keys = set()
 
     for lead in collected:
-
         agency_name = str(
             lead.get("agency_name", "")
         ).strip()
@@ -902,7 +852,6 @@ def scrape_leads_sync(
 
         seen_keys.add(key)
 
-        # Ensure the fields expected by the frontend exist.
         cleaned_lead = {
             "agency_name": agency_name,
             "location": lead_location,
@@ -928,16 +877,12 @@ def scrape_leads_sync(
         if len(unique) >= max_results:
             break
 
-    # -------------------------------------------------------------------------
     # Merge with persistent leads
-    # -------------------------------------------------------------------------
-
     existing = load_leads()
 
     valid_existing = []
 
     for lead in existing:
-
         if not isinstance(lead, dict):
             continue
 
@@ -964,7 +909,6 @@ def scrape_leads_sync(
     added: List[Dict] = []
 
     for lead in unique:
-
         key = (
             _normalise_key(
                 lead.get("agency_name", "")
@@ -975,7 +919,6 @@ def scrape_leads_sync(
         )
 
         if key not in existing_keys:
-
             merged.append(lead)
             added.append(lead)
             existing_keys.add(key)
@@ -983,8 +926,6 @@ def scrape_leads_sync(
     try:
         save_leads(merged)
     except Exception:
-        # Scraping results should still be returned even if persistent
-        # storage is temporarily unavailable.
         pass
 
     return added if added else unique
@@ -1004,56 +945,22 @@ def send_cold_emails(
         Callable[[int, int, str, str, str], None]
     ] = None,
 ) -> List[Dict]:
-    """
-    Send personalised cold emails using yagmail/Gmail SMTP.
-
-    Parameters
-    ----------
-    leads:
-        List of lead dictionaries.
-
-    app_password:
-        Gmail App Password used for SMTP authentication.
-
-    subject_template:
-        Email subject supporting {agency_name} and {location}.
-
-    body_template:
-        Email body supporting {agency_name} and {location}.
-
-    delay_seconds:
-        Delay between messages.
-
-    progress_callback:
-        Optional callback receiving:
-            (index, total, agency_name, status, error)
-
-    Returns
-    -------
-    List[Dict]
-        One result dictionary per lead.
-    """
-
+    """Send personalised cold emails using yagmail/Gmail SMTP."""
     results: List[Dict] = []
 
     if not isinstance(leads, list) or not leads:
         return results
 
     if not app_password or not str(app_password).strip():
-
         return [{
             "agency_name": "ALL",
             "status": "INIT_FAIL",
             "error": "Gmail App Password is missing.",
         }]
 
-    # Import lazily so the entire Streamlit app can still start
-    # when yagmail is not installed and email functionality is unused.
     try:
         import yagmail
-
     except ImportError:
-
         return [{
             "agency_name": "ALL",
             "status": "INIT_FAIL",
@@ -1064,14 +971,11 @@ def send_cold_emails(
         }]
 
     try:
-
         yag = yagmail.SMTP(
             SENDER_EMAIL,
             str(app_password).strip()
         )
-
     except Exception as exc:
-
         return [{
             "agency_name": "ALL",
             "status": "INIT_FAIL",
@@ -1081,9 +985,7 @@ def send_cold_emails(
     total = len(leads)
 
     try:
-
         for index, lead in enumerate(leads, start=1):
-
             if not isinstance(lead, dict):
                 lead = {}
 
@@ -1108,27 +1010,20 @@ def send_cold_emails(
                 )
             )
 
-            # -------------------------------------------------------------
             # Validate recipient
-            # -------------------------------------------------------------
-
             if (
                 not recipient
                 or "@" not in recipient
                 or "." not in recipient.rsplit("@", 1)[-1]
             ):
-
                 result = {
                     "agency_name": agency,
                     "recipient": recipient,
                     "status": "SKIPPED",
                     "error": "No valid email address.",
                 }
-
             else:
-
                 try:
-
                     subject = subject_template.format(
                         agency_name=agency,
                         location=location,
@@ -1153,7 +1048,6 @@ def send_cold_emails(
                     }
 
                 except Exception as exc:
-
                     result = {
                         "agency_name": agency,
                         "recipient": recipient,
@@ -1163,12 +1057,8 @@ def send_cold_emails(
 
             results.append(result)
 
-            # -------------------------------------------------------------
             # Progress callback
-            # -------------------------------------------------------------
-
             if progress_callback:
-
                 try:
                     progress_callback(
                         index,
@@ -1177,11 +1067,7 @@ def send_cold_emails(
                         result["status"],
                         result.get("error", ""),
                     )
-
                 except TypeError:
-
-                    # Backward compatibility for callbacks expecting
-                    # only four parameters.
                     try:
                         progress_callback(
                             index,
@@ -1191,16 +1077,11 @@ def send_cold_emails(
                         )
                     except Exception:
                         pass
-
                 except Exception:
                     pass
 
-            # -------------------------------------------------------------
             # Delay between emails
-            # -------------------------------------------------------------
-
             if index < total:
-
                 try:
                     delay = float(delay_seconds)
                 except (TypeError, ValueError):
@@ -1210,8 +1091,6 @@ def send_cold_emails(
                     time.sleep(delay)
 
     finally:
-
-        # Close the SMTP connection where supported.
         try:
             yag.close()
         except Exception:
