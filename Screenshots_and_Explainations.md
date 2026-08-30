@@ -274,9 +274,9 @@ It creates a direct feedback loop between users and developers, allowing the pla
 - AI-assisted customer support
 
 
-# Payment Verification
+# Payment 
 
-![Payment Verification](Screenshots/screenshot(16).png)
+![Payment](Screenshots/screenshot(16).png)
 
 ### Explanation
 
