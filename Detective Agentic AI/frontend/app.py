@@ -71,19 +71,14 @@ def _get_admin_password() -> str:
         return ADMIN_PASSWORD
 
 def _get_gmail_app_password() -> str:
-    """Read the Gmail App Password from Streamlit secrets or environment."""
+    """Read the Gmail App Password from Streamlit secrets."""
     for key in ("GMAIL_APP_PASSWORD", "EMAIL_APP_PASSWORD", "GMAIL_PASSWORD"):
         try:
-            value = st.secrets.get(key)
+            value = st.secrets[key]
             if value:
                 return str(value).strip()
         except Exception:
             pass
-
-        value = os.environ.get(key)
-        if value:
-            return str(value).strip()
-
     return ""
 
 _ss_defaults = {
@@ -716,6 +711,18 @@ if st.session_state.is_admin:
             selected_leads = [saved_leads[i] for i in selected_indices]
             st.info(f"Selected **{len(selected_leads)}** of **{len(saved_leads)}** prospects.")
 
+            st.markdown("#### 🔐 Gmail Authentication")
+            st.caption(
+                "Enter the Gmail App Password for the sending account. "
+                "It is used only for this session and is not saved to your project files."
+            )
+            gmail_session_password = st.text_input(
+                "Gmail App Password",
+                type="password",
+                placeholder="Enter your 16-character Google App Password",
+                key="b2b_gmail_session_password",
+            )
+
             st.markdown("#### 👁️ Email Preview")
 
             def _render_email(template, lead):
@@ -737,14 +744,13 @@ if st.session_state.is_admin:
                     "{name}": str(recipient_name),
                     "{email}": str(recipient_email),
                     "{location}": str(lead.get("location", "")),
-                    "{platform_url}": PLATFORM_URL,
                 }
                 for placeholder, value in replacements.items():
                     rendered = rendered.replace(placeholder, value)
 
-                # Safety net for any stale template text.
+                # Only preview-link fix: ensure the live platform URL is used.
                 rendered = rendered.replace(
-                    "https://ibmhackathon2026-uzj9dxbwnxgkcdffvztpfa.streamlit.app",
+                    "https://detective-ai.streamlit.app",
                     PLATFORM_URL.rstrip("/")
                 )
                 return rendered
@@ -764,9 +770,9 @@ if st.session_state.is_admin:
             st.divider()
             if selected_leads:
                 if st.button(f"🚀 Dispatch Cold Emails to {len(selected_leads)} Selected Recipients", use_container_width=True, key="btn_dispatch_selected_emails"):
-                    app_password = _get_gmail_app_password()
+                    app_password = str(gmail_session_password or "").strip()
                     if not app_password:
-                        st.error("Gmail App Password is missing. Add `GMAIL_APP_PASSWORD` to Streamlit Secrets, then try again.")
+                        st.error("Enter the Gmail App Password above, then try again.")
                     else:
                         progress_box = st.empty()
                         with st.spinner(f"Sending emails to {len(selected_leads)} selected recipients..."):
