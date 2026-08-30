@@ -624,7 +624,28 @@ if st.session_state.is_admin:
         saved_leads = load_leads()
 
         if saved_leads:
-            st.write(f"Loaded **{len(saved_leads)}** prospects ready for dispatch.")
+            email_ready_count = sum(
+                1 for lead in saved_leads
+                if isinstance(lead, dict) and re.fullmatch(
+                    r"[^\s@]+@[^\s@]+\.[^\s@]+",
+                    str(
+                        lead.get("contact_email")
+                        or lead.get("email")
+                        or lead.get("email_address")
+                        or ""
+                    ).strip(),
+                )
+            )
+            st.write(
+                f"Loaded **{len(saved_leads)}** prospects — "
+                f"**{email_ready_count}** have a valid email address."
+            )
+            if email_ready_count == 0:
+                st.warning(
+                    "No verified email addresses are available yet. "
+                    "Prospects without a published email are kept for manual "
+                    "enrichment and will not be emailed."
+                )
 
             def _lead_label(lead, index):
                 if not isinstance(lead, dict):
@@ -759,9 +780,45 @@ if st.session_state.is_admin:
                                         st.error(f"{item.get('agency_name', item.get('recipient', 'Unknown'))}: {item.get('error', 'Unknown error')}")
                                 if not successful and not failed:
                                     st.info("No emails were dispatched.")
+
+                                # Persist dispatch results so the admin can see
+                                # which prospects have already been contacted.
+                                result_by_email = {
+                                    str(item.get("recipient", "")).strip().lower(): item
+                                    for item in dispatch_result
+                                    if item.get("recipient")
+                                }
+                                changed = False
+                                for lead in saved_leads:
+                                    if not isinstance(lead, dict):
+                                        continue
+                                    lead_email = str(
+                                        lead.get("contact_email")
+                                        or lead.get("email")
+                                        or lead.get("email_address")
+                                        or ""
+                                    ).strip().lower()
+                                    item = result_by_email.get(lead_email)
+                                    if not item:
+                                        continue
+
+                                    new_status = str(item.get("status", "Prospect"))
+                                    if lead.get("status") != new_status:
+                                        lead["status"] = new_status
+                                        changed = True
+
+                                    if new_status == "SENT":
+                                        lead["last_contacted_at"] = time.strftime(
+                                            "%Y-%m-%d %H:%M:%S"
+                                        )
+                                        changed = True
+
+                                if changed:
+                                    save_leads(saved_leads)
+
                             except Exception as e:
                                 st.error(f"Email dispatch failed: {e}")
             else:
                 st.button("🚀 Dispatch Cold Emails", use_container_width=True, key="btn_dispatch_disabled", disabled=True)
         else:
-            st.info("No saved leads available to email. Perform a lead scrape first.")
+            st.info("No saved leads available to email. Perform a lead scrape first.") 
