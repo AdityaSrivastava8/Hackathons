@@ -361,7 +361,7 @@ Integration with secure payment gateways.
 
 # Prospect Information
 
-![Prospect Information](Screenshots/screenshot(20).png)
+![Prospect Information](Screenshots/screenshot(24).png)
 
 ### Explanation
 
