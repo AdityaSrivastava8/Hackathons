@@ -503,14 +503,9 @@ with tab_profile:
                         raw_score = res.get("tendency_score", "0%")
                         matched_cases = res.get("similar_cases", [])
 
-                        if not matched_cases and (raw_score == "15%" or raw_score == "0%"):
-                            severe_keywords = ["murder", "kill", "weapon", "assault", "robbery", "theft", "break-in", "crime", "suicide"]
-                            kw_matches = sum(1 for kw in severe_keywords if kw in behaviors.lower())
-                            calculated_num = min(95, max(25, 30 + (kw_matches * 20)))
-                            raw_score = f"{calculated_num}%"
-                            risk_lbl = "HIGH RISK" if calculated_num >= 70 else "MEDIUM RISK" if calculated_num >= 40 else "LOW RISK"
-                        else:
-                            risk_lbl = res.get("risk_level", "UNKNOWN")
+                        # analyzer.py is the single source of truth for scoring/risk.
+                        # Do not recalculate or overwrite its result here.
+                        risk_lbl = res.get("risk_level", "UNKNOWN")
 
                         st.session_state.latest_results = {
                             "name":           res.get("suspect_name", name_str),
@@ -526,7 +521,8 @@ with tab_profile:
                         # Keep previous completed analyses instead of losing them on rerun.
                         st.session_state.analysis_history.append(st.session_state.latest_results.copy())
 
-                        st.rerun()
+                        # No st.rerun() here: the current run continues and displays
+                        # the newly completed result immediately.
 
                     except Exception as err:
                         st.error(f"Analysis failed: {err}")
