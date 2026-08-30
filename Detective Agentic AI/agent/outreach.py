@@ -77,21 +77,25 @@ def _slug(text: str) -> str:
 def _normalise_key(value: str) -> str:
     return re.sub(r"\s+", " ", str(value or "").strip().lower())
 
+_EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+
 def _safe_email(value: str) -> str:
-    return str(value or "").strip()
+    email = str(value or "").strip()
+    return email if _EMAIL_RE.fullmatch(email) else ""
 
 def _domain_from_url(url: str) -> str:
     if not url:
         return ""
     try:
-        hostname = urlparse(url).netloc
-        return hostname.lower().removeprefix("www.") if hostname else ""
+        candidate = str(url).strip()
+        if not candidate:
+            return ""
+        if "//" not in candidate:
+            candidate = "https://" + candidate
+        hostname = urlparse(candidate).hostname or ""
+        return hostname.lower().removeprefix("www.")
     except Exception:
         return ""
-
-def _generated_email(name: str) -> str:
-    slug = _slug(name)
-    return f"info@{slug}.com" if slug else ""
 
 _OSM_TAG_MAP = {
     "detective": [("office", "detective"), ("office", "investigator"), ("office", "lawyer")],
@@ -175,10 +179,6 @@ def _overpass_search(keyword: str, location: str, max_results: int) -> List[Dict
         phone = tags.get("phone") or tags.get("contact:phone") or ""
         email = tags.get("contact:email") or tags.get("email") or ""
         city = tags.get("addr:city") or tags.get("addr:town") or tags.get("addr:suburb") or location
-        domain = _domain_from_url(website)
-        if not email:
-            email = f"info@{domain}" if domain else _generated_email(name)
-
         leads.append({
             "agency_name": name,
             "location": str(city),
@@ -231,7 +231,7 @@ def _duckduckgo_search(keyword: str, location: str, max_results: int) -> List[Di
         leads.append({
             "agency_name": name,
             "location": location,
-            "contact_email": f"info@{domain}" if domain else _generated_email(name),
+            "contact_email": "",
             "website": url,
             "phone": "",
             "source": "DuckDuckGo",
@@ -268,7 +268,7 @@ def _wikipedia_search(keyword: str, location: str, max_results: int) -> List[Dic
         seen.add(key)
         leads.append({
             "agency_name": name, "location": location,
-            "contact_email": _generated_email(name), "website": url,
+            "contact_email": "", "website": url,
             "phone": "", "source": "Wikipedia", "status": "Prospect",
         })
     return leads
@@ -299,7 +299,7 @@ def _seed_leads(keyword: str, location: str, max_results: int) -> List[Dict]:
         used.add(key)
         leads.append({
             "agency_name": name, "location": location,
-            "contact_email": _generated_email(name), "website": "",
+            "contact_email": "", "website": "",
             "phone": "", "source": "Generated (Verify Manually)", "status": "Prospect",
         })
     return leads
@@ -327,11 +327,9 @@ def scrape_leads_sync(keyword: str, location: str, max_results: int = 20) -> Lis
         except Exception:
             pass
 
-    if len(collected) < max_results:
-        try:
-            collected.extend(_seed_leads(keyword, location, max_results - len(collected)))
-        except Exception:
-            pass
+    # Do not fabricate businesses or email addresses. Keep only externally
+    # discovered leads; contacts without a published email can be enriched
+    # manually before dispatch.
 
     unique, seen_keys = [], set()
     for lead in collected:
@@ -411,7 +409,7 @@ def send_cold_emails(
                 lead.get("contact_email") or lead.get("email") or lead.get("email_address") or ""
             )
 
-            if not recipient or "@" not in recipient or "." not in recipient.rsplit("@", 1)[-1]:
+            if not _EMAIL_RE.fullmatch(recipient):
                 result = {"agency_name": agency, "recipient": recipient, "status": "SKIPPED", "error": "No valid email address."}
             else:
                 try:
