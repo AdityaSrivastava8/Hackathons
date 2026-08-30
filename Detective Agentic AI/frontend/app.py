@@ -41,6 +41,34 @@ st.set_page_config(
 
 PLATFORM_URL = "https://ibmhackathon2026-uzj9dxbwnxgkcdffvztpfa.streamlit.app/"
 
+# Keep outreach preview and dispatch tied to the current live app URL.
+OUTREACH_EMAIL_SUBJECT = (
+    "25 Free AI Profiling Credits for {agency_name} — Detective Agentic AI"
+)
+
+OUTREACH_EMAIL_BODY = """Hello {agency_name},
+
+We noticed your agency operating in {location}. We are reaching out to introduce Detective Agentic AI — an automated criminal profiling and precedent-matching system purpose-built for legal and investigative agencies like yours.
+
+What we offer:
+
+- Instant behavioural risk scoring against a database of historical criminal precedents
+- AI-generated suspect profiles with downloadable PDF reports
+- Secure, session-isolated processing — your case data stays with you
+- Flexible pay-as-you-go plans starting at Rs. 500 (Starter / 100 evaluations)
+
+Claim your 25 FREE Profiling Evaluations now — no credit card required:
+{platform_url}
+
+If you have any questions or would like a live walkthrough, simply reply to this email.
+
+Best regards,
+Aditya Srivastava          |  Akshat Verma
+Lead Developer & Founder   |  Co-Founder
+yeahboyadi@gmail.com        |  akshat.v2166@gmail.com
+Detective Agentic AI — {platform_url}
+"""
+
 DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data"))
 PAYMENTS_FILE = os.path.join(DATA_DIR, "payments.json")
 
@@ -71,7 +99,7 @@ def _get_admin_password() -> str:
         return ADMIN_PASSWORD
 
 def _get_gmail_app_password() -> str:
-    """Read the Gmail App Password from Streamlit secrets."""
+    """Read the Gmail App Password from Streamlit Secrets or environment."""
     for key in ("GMAIL_APP_PASSWORD", "EMAIL_APP_PASSWORD", "GMAIL_PASSWORD"):
         try:
             value = st.secrets[key]
@@ -79,6 +107,11 @@ def _get_gmail_app_password() -> str:
                 return str(value).strip()
         except Exception:
             pass
+
+        value = os.getenv(key, "")
+        if value:
+            return str(value).strip()
+
     return ""
 
 _ss_defaults = {
@@ -732,9 +765,16 @@ if st.session_state.is_admin:
                     "{name}": str(recipient_name),
                     "{email}": str(recipient_email),
                     "{location}": str(lead.get("location", "")),
+                    "{platform_url}": PLATFORM_URL,
                 }
                 for placeholder, value in replacements.items():
                     rendered = rendered.replace(placeholder, value)
+
+                # Safety net for any stale template text.
+                rendered = rendered.replace(
+                    "https://detective-ai.streamlit.app",
+                    PLATFORM_URL
+                )
                 return rendered
 
             if selected_leads:
@@ -745,8 +785,8 @@ if st.session_state.is_admin:
                 preview_email = preview_lead.get("email") or preview_lead.get("email_address") or preview_lead.get("contact_email") or ""
                 st.text_input("To", value=str(preview_email), disabled=True, key="outreach_preview_to")
                 st.text_input("Agency / Recipient", value=preview_label, disabled=True, key="outreach_preview_agency")
-                st.text_input("Subject", value=_render_email(COLD_EMAIL_SUBJECT, preview_lead), disabled=True, key="outreach_preview_subject")
-                st.text_area("Email Body", value=_render_email(COLD_EMAIL_BODY, preview_lead), height=300, disabled=True, key="outreach_preview_body")
+                st.text_input("Subject", value=_render_email(OUTREACH_EMAIL_SUBJECT, preview_lead), disabled=True, key="outreach_preview_subject")
+                st.text_area("Email Body", value=_render_email(OUTREACH_EMAIL_BODY, preview_lead), height=300, disabled=True, key="outreach_preview_body")
                 st.caption("Nothing is sent until you click the dispatch button below.")
 
             st.divider()
@@ -762,8 +802,8 @@ if st.session_state.is_admin:
                                 dispatch_result = send_cold_emails(
                                     selected_leads,
                                     app_password,
-                                    COLD_EMAIL_SUBJECT,
-                                    COLD_EMAIL_BODY,
+                                    OUTREACH_EMAIL_SUBJECT,
+                                    OUTREACH_EMAIL_BODY,
                                     delay_seconds=5,
                                     progress_callback=lambda i, total, agency, status, error="": progress_box.info(
                                         f"Sending {i}/{total}: {agency} — {status}"
