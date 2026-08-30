@@ -1070,14 +1070,84 @@ if st.session_state.is_admin:
                         f"Sending emails to {len(selected_leads)} selected agencies..."
                     ):
                         try:
-                            sent_count = send_cold_emails(
-                                selected_leads,
-                                COLD_EMAIL_SUBJECT,
-                                COLD_EMAIL_BODY
+                            # Keep the visible preview unchanged. Only the copy
+                            # passed to the existing sender is made ASCII-safe,
+                            # preventing characters such as — from breaking an
+                            # ASCII-only SMTP/header implementation.
+                            def _ascii_safe(value):
+                                if isinstance(value, str):
+                                    return value.encode(
+                                        "ascii", errors="replace"
+                                    ).decode("ascii")
+                                return value
+
+                            def _ascii_safe_lead(lead):
+                                if isinstance(lead, dict):
+                                    return {
+                                        key: _ascii_safe(value)
+                                        for key, value in lead.items()
+                                    }
+                                return _ascii_safe(lead)
+
+                            send_leads = [
+                                _ascii_safe_lead(lead)
+                                for lead in selected_leads
+                            ]
+                            send_subject = _ascii_safe(COLD_EMAIL_SUBJECT)
+                            send_body = _ascii_safe(COLD_EMAIL_BODY)
+
+                            dispatch_result = send_cold_emails(
+                                send_leads,
+                                send_subject,
+                                send_body
                             )
-                            st.success(
-                                f"Successfully sent {sent_count} email(s) to the selected agencies."
-                            )
+
+                            # Support both the existing integer return style
+                            # and per-recipient status-list return style.
+                            if isinstance(dispatch_result, int):
+                                st.success(
+                                    f"Successfully sent {dispatch_result} "
+                                    f"email(s) to the selected agencies."
+                                )
+                            elif isinstance(dispatch_result, list):
+                                successful = [
+                                    item for item in dispatch_result
+                                    if isinstance(item, dict)
+                                    and str(item.get("status", "")).upper()
+                                    in {"SENT", "SUCCESS", "SUCCESSFUL"}
+                                ]
+                                failed = [
+                                    item for item in dispatch_result
+                                    if isinstance(item, dict)
+                                    and str(item.get("status", "")).upper()
+                                    not in {"SENT", "SUCCESS", "SUCCESSFUL"}
+                                ]
+
+                                if failed:
+                                    st.warning(
+                                        f"Dispatch completed: {len(successful)} "
+                                        f"sent, {len(failed)} failed."
+                                    )
+                                    for item in failed:
+                                        agency = item.get(
+                                            "agency_name",
+                                            item.get("recipient", "Unknown")
+                                        )
+                                        error = item.get(
+                                            "error",
+                                            "Unknown sending error"
+                                        )
+                                        st.error(f"{agency}: {error}")
+                                else:
+                                    st.success(
+                                        f"Successfully sent {len(successful)} "
+                                        f"email(s) to the selected agencies."
+                                    )
+                            else:
+                                st.success(
+                                    "Email dispatch completed successfully."
+                                )
+
                         except Exception as e:
                             st.error(f"Email dispatch failed: {e}")
             else:
@@ -1090,3 +1160,4 @@ if st.session_state.is_admin:
         else:
             st.info("No saved leads available to email. Perform a lead scrape first.")
 
+ 
