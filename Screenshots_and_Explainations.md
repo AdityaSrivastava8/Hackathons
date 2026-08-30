@@ -159,7 +159,7 @@ It creates a direct feedback loop between users and developers, allowing the pla
 
 # Admin Portal
 
-![Admin Portal](Screenshots/screenshot(9).png)
+![Admin Portal](Screenshots/screenshot(8).png)
 
 ### Explanation
 
