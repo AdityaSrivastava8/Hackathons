@@ -274,7 +274,7 @@ It creates a direct feedback loop between users and developers, allowing the pla
 - AI-assisted customer support
 
 
-# Payment 
+# Payment Verification 
 
 ![Payment](Screenshots/screenshot(16).png)
 
@@ -292,9 +292,9 @@ This introduces a verification layer before activating the selected service or c
 - Secure transaction records
 
 
-# Payment & Verification
+# UPI & QR
 
-![Payment & Verification](Screenshots/screenshot(15).png)
+![UPI & QR](Screenshots/screenshot(15).png)
 
 ### Explanation
 
