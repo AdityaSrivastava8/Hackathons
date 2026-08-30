@@ -30,7 +30,6 @@ structured intelligence and actionable insights.
 ### Explanation
 
 This screen presents the AI-generated analysis of the entered suspect information. The system combines the submitted observations with relevant precedent information to produce a structured intelligence assessment.
-
 The interface provides a profile, risk classification, tendency score, and matched precedents, helping investigators review the analysis in a concise format.
 
 ### Future Prospects
@@ -42,74 +41,102 @@ The interface provides a profile, risk classification, tendency score, and match
 - Cross-case intelligence correlation
 
 
-# Case Index
+# Analysis & Precedent Results 2
 
-![Case Index](Screenshots/screenshot(3).png)
-
-### Explanation
-
-The Case Index provides a centralized view of investigation records. Investigators can access previously created cases instead of starting every investigation from scratch.
-
-### Future Prospects
-
-- Advanced case search and filtering
-- Case categorization
-- Evidence attachment
-- Investigation timelines
-- Secure case sharing between authorized users
+![Analysis & Precedent Results 2](Screenshots/screenshot(3).png)
 
 
-# Case Information
+# Plan Upgrade
 
-![Case Information](Screenshots/screenshot(4).png)
+![Plan Upgrade](Screenshots/screenshot(4).png)
 
 ### Explanation
 
-This screen provides detailed information about an individual investigation. It allows case-related information to remain organized and accessible throughout the investigation lifecycle.
+The Plan Upgrade section allows users to continue using Detective Agentic AI after completing their initial *25 free profiling evaluations*.
+The 25 free evaluations provide users with an opportunity to explore the platform and test its AI-powered profiling and precedent-matching capabilities. Once these evaluations are used, users can upgrade to a plan based on their expected usage.
+
+The available plans are:
+
+- *Starter – ₹500/month:* 100 evaluations, suitable for users with occasional profiling requirements.
+- *Pro – ₹1,000/month:* 500 evaluations, suitable for users who require more frequent profiling and analysis.
+- *Enterprise – ₹2,000/month:* Unlimited evaluations, designed for users with high-volume or continuous profiling requirements.
+
+The *Upgrade / Billing Portal* provides the pathway for users to select a suitable plan and manage their subscription as their usage grows.
 
 ### Future Prospects
 
-- Complete digital case files
-- Evidence management
-- Automated case summaries
-- Timeline generation
-- Investigator collaboration
+- Secure online payment and subscription activation
+- Automatic upgrade after the 25 free evaluations are exhausted
+- Automatic subscription renewal
+- Real-time evaluation/credit usage tracking
+- Notifications when remaining evaluations are low
+- Easy switching between Starter, Pro, and Enterprise plans
+- Detailed billing and invoice management
+- Custom plans for users with specialized requirements
 
 
-# AI Profiling Result
+# Case Indexer
 
-![AI Profiling Result](Screenshots/screenshot(5).png)
+![Case Indexer](Screenshots/screenshot(5).png)
 
 ### Explanation
 
-This screen displays the outcome of the AI profiling process. The system converts the information entered by the investigator into structured intelligence that can assist with further investigation.
+The *Case Indexer* allows agencies or individual users to upload their own case files in *JSON format* to the platform's Vector Database.
+The uploaded case information can be used as a customized knowledge source for our *agentic AI*. Instead of relying only on predefined information, the system can retrieve relevant information from the user's uploaded cases and use it during analysis.
+
+This feature allows users to:
+
+- Upload their own historical case files and investigative data.
+- Store and organize case information in the *Vector Database*.
+- Create a customized knowledge base for their agency or personal use.
+- Allow the agentic AI to retrieve relevant information from uploaded cases.
+- Analyse new cases using information from previously indexed cases.
+- Identify similarities, patterns, and potentially relevant connections between cases.
+- Improve the context and usefulness of AI-generated investigative insights.
 
 ### Future Prospects
 
-- Advanced behavioral models
-- Multi-agent analysis
-- Historical pattern recognition
-- Explainable recommendations
-- Continuous model improvement
+- Support for additional formats such as *PDF, DOCX, images, audio transcripts, and reports*.
+- Advanced *case similarity and precedent matching* using indexed historical data.
+- Automatic identification of relationships between *suspects, evidence, locations, events, and previous cases*.
+- Agency-specific AI knowledge bases with secure data isolation.
+- Continuous indexing of new cases to keep the knowledge base updated.
+- Integration with multiple AI agents for *deeper investigation and cross-case analysis*.
+- Advanced RAG-based retrieval to provide the AI with the most relevant case information before analysis.
+- Secure authentication, access control, encryption, and audit logging for sensitive investigative data.
+- AI-assisted discovery of hidden patterns across large collections of historical cases.
 
 
-# Low Risk Assessment
+# Training Agentic AI
 
-![Low Risk Assessment](Screenshots/screenshot(6).png)
+![Training](Screenshots/screenshot(6).png)
 
 ### Explanation
 
-This screen demonstrates the system's risk-assessment capability. Based on the available information, the AI generates a risk classification and tendency score.
-
-The result is intended to support investigators rather than replace human judgment, providing an additional analytical signal during investigations.
+The Agentic AI system acts as an intelligent investigation assistant that can analyse case information, retrieve relevant knowledge, and support investigators throughout the investigative process.
+Instead of performing only a single AI query, the agentic system can combine different capabilities such as case analysis, behavioural profiling, precedent matching, knowledge retrieval, and reasoning to generate more contextual investigative insights.
+This feature allows users to:
+Analyse suspect information, behaviours, traits, and investigative observations.
+Retrieve relevant information from the system's Vector Database.
+Use uploaded case data as an additional knowledge source.
+Perform case comparison and precedent matching.
+Identify behavioural patterns and potentially relevant connections.
+Generate structured intelligence and investigative insights.
+Combine multiple AI capabilities into a more complete investigative workflow.
+Assist investigators while keeping human judgement and verification in the decision-making process.
 
 ### Future Prospects
 
-- More sophisticated risk models
-- Transparent scoring methodology
-- Confidence indicators
-- Human verification workflows
-- Continuous model evaluation
+Development of multiple specialized AI agents for different investigative tasks.
+Multi-agent collaboration for behavioural analysis, evidence analysis, precedent matching, and case reasoning.
+Real-time retrieval from authorized investigative databases.
+Automated investigation planning and task orchestration.
+Advanced knowledge graphs connecting suspects, cases, evidence, locations, and events.
+Explainable AI that provides the reasoning and supporting information behind its conclusions.
+Continuous learning from approved and securely indexed case data.
+Integration with existing investigation and case-management systems.
+Secure agency-specific AI environments with authentication, encryption, access control, and audit logs.
+Real-time intelligence monitoring and automated alerts for relevant case developments.
 
 
 # Contact, Feedback & Feature Requests
@@ -119,7 +146,6 @@ The result is intended to support investigators rather than replace human judgme
 ### Explanation
 
 This interface provides users with options to contact the development team, submit feedback, and request new features.
-
 It creates a direct feedback loop between users and developers, allowing the platform to evolve based on practical investigative requirements.
 
 ### Future Prospects
@@ -131,145 +157,130 @@ It creates a direct feedback loop between users and developers, allowing the pla
 - AI-assisted customer support
 
 
-# Agency Subscription Plans
+# Admin Portal
 
-![Agency Subscription Plans](Screenshots/screenshot(8).png)
-
-### Explanation
-
-The subscription screen presents different agency plans designed for organizations with different usage requirements.
-
-This provides the foundation for scaling Detective Agentic AI from an individual investigative tool into an agency-level platform.
-
-### Future Prospects
-
-- Enterprise plans
-- Organization accounts
-- Team management
-- Usage analytics
-- Flexible pricing and credit systems
-
-
-# Detective Agentic AI & RAG Profiling System
-
-![Detective Agentic AI](Screenshots/screenshot(9).png)
+![Admin Portal](Screenshots/screenshot(9).png)
 
 ### Explanation
 
-This screen introduces the core Detective Agentic AI and RAG Profiling System.
-
-The platform combines agentic AI with Retrieval-Augmented Generation to retrieve relevant information and generate contextual investigative intelligence.
+The Admin Portal provides a secure, password-protected interface for administrators to access restricted platform features.
+This feature allows administrators to:
+Prevent regular users from accessing administrative functions.
+Securely manage and monitor the platform.
+Access tools intended specifically for administration and outreach.
+Manage communication with multiple detective agencies and potential users.
 
 ### Future Prospects
 
-- Multi-agent investigation
-- Real-time information retrieval
-- Authorized external data integration
-- Automated investigation workflows
-- Large-scale agency deployment
+Admin dashboard for managing registered agencies and users.
+Bulk email and outreach to detective agencies.
+User and subscription management.
+Usage analytics and platform monitoring.
+Role-based access control for different administrators.
+Secure audit logs for administrative activities.
 
 
-# Suspect Intelligence Analysis
+# Unlocked Admin Portal Successfully 
 
-![Suspect Intelligence Analysis](Screenshots/screenshot(10).png)
+![Unlocked Admin Portal](Screenshots/screenshot(9).png)
 
 ### Explanation
 
-This screen demonstrates the intelligence-analysis workflow after suspect information has been entered.
-
-The system processes behavioral observations and other available information to generate an analytical profile.
+The Admin Portal is a secure, admin-only section protected by a PIN. It ensures that only authorized administrators can access and manage platform-level features.
+Once authenticated, the administrator can unlock the portal and manage outreach and deployment activities for offering the Detective Agentic AI to different detective agencies.
 
 ### Future Prospects
 
-- Behavioral pattern recognition
-- Automated evidence correlation
-- Knowledge-graph integration
-- Advanced RAG pipelines
-- Investigator-controlled AI reasoning
+Secure admin authentication and role-based access.
+Manage multiple detective agency accounts.
+Send outreach emails and invitations to agencies.
+Track agency onboarding and usage.
+Manage subscriptions and access permissions.
+Monitor platform activity and performance.
 
 
-# Precedent Matching
+# Pending Submissions
 
-![Precedent Matching](Screenshots/screenshot(11).png)
+![Pending Submissions](Screenshots/screenshot(10).png)
 
 ### Explanation
 
-The system displays relevant matched precedents alongside the generated suspect profile.
-
-This allows investigators to compare the current observations with previously stored investigative patterns and potentially identify useful similarities.
+The Pending Submissions section allows the admin to view all pending payment submissions made by users. It displays the relevant payment details, including the user name and UTR ID, so the admin can verify the transaction before approving the payment.
+This helps ensure that subscription payments are properly verified and prevents unauthorized plan activation.
 
 ### Future Prospects
 
-- Semantic precedent search
-- Larger historical databases
-- Similarity scoring
-- Relationship graphs
-- Cross-case pattern discovery
+Admin approval or rejection of payment submissions.
+Automatic UTR verification through payment APIs.
+Payment status updates in real time.
+Automated notifications after approval or rejection.
+Complete payment history and audit logs.
+Fraud detection for duplicate or suspicious transactions.
 
 
-# Case Creation
+# Download PDF
 
-![Case Creation](Screenshots/screenshot(12).png)
+![PDF](Screenshots/screenshot(11).png)
 
 ### Explanation
 
-This interface allows an investigator to create or initialize a new case within the system.
-
-Centralized case creation provides the foundation for maintaining structured information throughout the investigation.
+The Download PDF option allows users to generate and download a structured PDF report containing the analysis performed by the Detective Agentic AI, including its findings and relevant insights.
 
 ### Future Prospects
 
-- Automated case-number generation
-- Case templates
-- Evidence linking
-- Investigator assignment
-- Case lifecycle tracking
+More detailed and customizable reports.
+Inclusion of evidence, precedents, and risk assessments.
+Automatic report generation and formatting.
+Digital signatures and secure report sharing.
+Export options for different professional formats.
 
 
-# Agency Activation
+# Subscription Plans
 
-![Agency Activation](Screenshots/screenshot(13).png)
+![Plans](Screenshots/screenshot(13).png)
 
 ### Explanation
 
-This screen demonstrates the activation workflow for an agency plan. The platform connects subscription selection with the payment and account-activation process.
+The Subscription Plans section allows users to choose a suitable plan after completing their initial 25 free trial evaluations. Each plan provides different evaluation limits and features based on the user's requirements.
+The available plans are:
+Starter Agency – ₹500/month: 100 evaluations, standard RAG precedent search, and basic PDF export.
+Pro Agency – ₹1,000/month: 500 evaluations, faster ChromaDB vector search, and custom JSON file indexing.
+Enterprise SaaS – ₹2,000/month: Unlimited evaluations, private vector database, dedicated API, and priority support.
 
 ### Future Prospects
 
-- Automated payment confirmation
-- Instant plan activation
-- Multiple payment gateways
-- Automated invoices
-- Subscription management
+Flexible upgrades and downgrades between plans.
+Custom plans for large agencies and organizations.
+Automated subscription and payment management.
+Advanced enterprise security and private deployments.
+Dedicated APIs and integrations for professional agencies.
 
 
-# Starter Agency Payment
+# Contact, Feedback & Feature Requests
 
-![Starter Agency Payment](Screenshots/screenshot(14).png)
+![Contact and Feedback](Screenshots/screenshot(14).png)
 
 ### Explanation
 
-This screen provides a QR-based payment workflow for the Starter Agency plan.
-
-The interface gives the user payment instructions and provides a mechanism for submitting transaction information after payment.
+This interface provides users with options to contact the development team, submit feedback, and request new features.
+It creates a direct feedback loop between users and developers, allowing the platform to evolve based on practical investigative requirements.
 
 ### Future Prospects
 
-- Secure payment-gateway integration
-- Automatic transaction verification
-- Instant activation
-- Invoice generation
-- Payment history
+- Integrated support tickets
+- Automated feedback classification
+- Feature prioritization
+- User analytics
+- AI-assisted customer support
 
 
 # Payment Verification
 
-![Payment Verification](Screenshots/screenshot(15).png)
+![Payment Verification](Screenshots/screenshot(16).png)
 
 ### Explanation
 
 The payment-verification screen allows the user to provide a transaction reference after completing payment.
-
 This introduces a verification layer before activating the selected service or credits.
 
 ### Future Prospects
@@ -281,61 +292,71 @@ This introduces a verification layer before activating the selected service or c
 - Secure transaction records
 
 
-# Credit Top-Up
+# Payment & Verification
 
-![Credit Top Up](Screenshots/screenshot(16).png)
-
-### Explanation
-
-This screen demonstrates the ability to add additional AI profiling credits to an agency account.
-
-A credit-based model allows organizations to scale their usage according to their investigation requirements.
-
-### Future Prospects
-
-- Automatic credit purchasing
-- Low-credit notifications
-- Usage dashboards
-- Flexible credit packages
-- Organization-level consumption tracking
-
-
-# B2B Lead Scraper & Cold Email Outreach
-
-![B2B Lead Scraper](Screenshots/screenshot(17).png)
+![Payment & Verification](Screenshots/screenshot(15).png)
 
 ### Explanation
 
-The B2B Lead Scraper and Cold Email Outreach module is designed to identify potential investigative-agency prospects based on selected criteria such as keyword and location.
-
-The retrieved prospects are presented in a structured table, creating a bridge between agency discovery and outreach.
+The Payment & Verification feature allows users to purchase a subscription by paying through the provided UPI ID or QR code. After completing the payment, users enter their UTR/Transaction Reference ID and the amount paid to submit proof for admin verification.
+This feature allows users to:
+Pay securely using UPI or QR code.
+Submit their UTR/transaction reference for verification.
+Request activation of their selected subscription plan.
+Reduce manual communication during payment processing.
 
 ### Future Prospects
 
-- Intelligent lead scoring
-- Duplicate detection
-- Prospect qualification
-- CRM integration
-- Compliance-aware outreach
+Automated UPI payment verification.
+Real-time payment status updates.
+Automatic subscription activation after successful verification.
+Payment history and digital receipts.
+Integration with secure payment gateways.
 
 
-# Outreach Email Generation
+# Payment Balance Verification
 
-![Outreach Email Generation](Screenshots/screenshot(18).png)
+![Payment Balance Verification](Screenshots/screenshot(17).png)
 
 ### Explanation
 
-This screen demonstrates the AI-assisted generation of outreach emails for potential agency customers.
-
-Instead of manually writing every message, the system can generate personalized communication based on the prospect and the capabilities of the platform.
+The Payment Balance Verification feature quickly checks the user's submitted payment and identifies any remaining balance. If the payment is incomplete, the system displays the exact amount still required and provides a QR code/UPI ID for completing the payment.
+Further suspect analysis and advanced investigation features remain locked until the full payment is verified.
+This feature allows users to:
+Automatically identify incomplete payments.
+Clearly display the remaining balance.
+Submit a new UTR/transaction reference after paying the balance.
+Unlock advanced analysis after successful verification.
 
 ### Future Prospects
 
-- Personalized AI outreach
-- Automated follow-ups
-- Prospect classification
-- CRM integration
-- Campaign analytics
+Automated real-time payment verification.
+Instant balance confirmation and subscription activation.
+Secure payment-gateway integration.
+Automatic notifications for successful payments.
+Seamless access control for premium AI analysis.
+
+
+# Pending Payment Submissions
+
+![Pending Payment Submissions](Screenshots/screenshot(18).png)
+
+### Explanation
+
+The Pending Payment Submissions section allows the admin to view all users or agencies whose payment proofs are awaiting verification. Each submission displays the selected plan along with its UTR/Transaction Reference ID, making it easier for the admin to review and approve payments.
+This feature allows admins to:
+View all pending payment submissions in one place.
+Check the respective UTR/transaction IDs.
+Review and verify submitted payments.
+Approve payments and unlock the selected subscription.
+
+### Future Prospects
+
+Automated payment verification.
+Real-time payment status updates.
+Payment history and approval records.
+Notifications for pending and approved payments.
+Integration with secure payment gateways.
 
 
 # Prospect Information
@@ -362,9 +383,7 @@ This screen captures additional information required for an outreach or agency i
 ### Explanation
 
 This screenshot demonstrates the final outcome of the AI-powered outreach workflow. The personalized email generated by the system has successfully reached the target investigative agency's inbox.
-
 The email introduces Detective Agentic AI and highlights its key capabilities, including behavioural risk scoring, AI-generated suspect profiles, precedent matching, secure processing, and flexible evaluation plans.
-
 This confirms the end-to-end workflow from prospect identification and AI-generated content to actual email delivery.
 
 ### Future Prospects
@@ -384,7 +403,6 @@ This confirms the end-to-end workflow from prospect identification and AI-genera
 ### Explanation
 
 This screen demonstrates the email-sending workflow, including Gmail authentication and recipient selection.
-
 The user can review and select the intended recipients before sending the generated outreach messages.
 
 ### Future Prospects
@@ -403,7 +421,6 @@ The user can review and select the intended recipients before sending the genera
 ### Explanation
 
 This screen confirms the successful completion of the email-sending operation.
-
 The confirmation provides clear feedback to the user that the selected outreach process has been completed.
 
 ### Future Prospects
@@ -422,7 +439,6 @@ The confirmation provides clear feedback to the user that the selected outreach 
 ### Explanation
 
 This screen displays the complete AI-generated outreach message prepared for a prospective investigative agency.
-
 The system combines prospect information with the capabilities of Detective Agentic AI to produce targeted communication, reducing the time required for manual outreach.
 
 ### Future Prospects
