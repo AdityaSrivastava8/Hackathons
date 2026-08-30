@@ -7,6 +7,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import streamlit as st
 import json
 import time
+import re
 import io
 import pandas as pd
 from fpdf import FPDF
@@ -753,18 +754,34 @@ with tab_contact:
 if st.session_state.is_admin:
     with tab_outreach:
         st.subheader("📢 B2B Lead Scraper & Cold Email Outreach")
-        st.caption("Scrape target agency contact information and execute email campaigns.")
+        st.caption("Scrape target agency contact information, select specific agencies, preview emails, and dispatch only after approval.")
 
         col_kw, col_loc = st.columns(2)
         with col_kw:
-            target_keyword = st.text_input("Target Keyword / Niche", value="Detective Agency", key="outreach_kw")
+            target_keyword = st.text_input(
+                "Target Keyword / Niche",
+                value="Detective Agency",
+                key="outreach_kw"
+            )
         with col_loc:
-            target_location = st.text_input("Location", value="Delhi", key="outreach_loc")
+            target_location = st.text_input(
+                "Location",
+                value="Delhi",
+                key="outreach_loc"
+            )
 
-        if st.button("🔎 Scrape Leads", type="primary", use_container_width=True, key="btn_scrape_leads"):
+        if st.button(
+            "🔎 Scrape Leads",
+            type="primary",
+            use_container_width=True,
+            key="btn_scrape_leads"
+        ):
             with st.spinner("Scraping leads across web sources..."):
                 try:
-                    scraped_data = scrape_leads_sync(target_keyword, target_location)
+                    scraped_data = scrape_leads_sync(
+                        target_keyword,
+                        target_location
+                    )
                     if scraped_data:
                         st.success(f"Successfully scraped {len(scraped_data)} leads!")
                         df_leads = pd.DataFrame(scraped_data)
@@ -778,14 +795,298 @@ if st.session_state.is_admin:
         st.markdown("### 📧 Email Dispatcher")
 
         saved_leads = load_leads()
+
         if saved_leads:
             st.write(f"Loaded **{len(saved_leads)}** leads ready for dispatch.")
-            if st.button("🚀 Dispatch Cold Emails", use_container_width=True, key="btn_dispatch_emails"):
-                with st.spinner("Sending emails..."):
-                    try:
-                        sent_count = send_cold_emails(saved_leads, COLD_EMAIL_SUBJECT, COLD_EMAIL_BODY)
-                        st.success(f"Successfully sent {sent_count} emails!")
-                    except Exception as e:
-                        st.error(f"Email dispatch failed: {e}")
+
+            # Build a stable, human-readable label without changing the
+            # original lead dictionaries that send_cold_emails expects.
+            def _lead_label(lead, index):
+                if not isinstance(lead, dict):
+                    return f"Agency {index + 1}"
+
+                name = (
+                    lead.get("agency_name")
+                    or lead.get("company_name")
+                    or lead.get("company")
+                    or lead.get("business_name")
+                    or lead.get("name")
+                    or lead.get("title")
+                    or f"Agency {index + 1}"
+                )
+
+                email = (
+                    lead.get("email")
+                    or lead.get("email_address")
+                    or lead.get("contact_email")
+                    or ""
+                )
+
+                name = str(name).strip()
+                email = str(email).strip()
+
+                return f"{name} — {email}" if email else name
+
+            lead_labels = [
+                _lead_label(lead, index)
+                for index, lead in enumerate(saved_leads)
+            ]
+
+            # ── Command-based agency selection ───────────────────────────────
+            st.markdown("#### 🎯 Choose Agencies")
+            st.caption(
+                "You can select agencies manually or give a command. "
+                "Examples: `send to Delhi Inquiry Bureau`, `send to ABC and XYZ`, or `send to all`."
+            )
+
+            selection_command = st.text_input(
+                "Agency Selection Command",
+                placeholder="e.g. send to Delhi Inquiry Bureau and ABC Agency",
+                key="outreach_selection_command"
+            )
+
+            command_matches = []
+            command_not_found = []
+
+            if selection_command.strip():
+                command_lower = selection_command.lower().strip()
+
+                if command_lower in {
+                    "all",
+                    "send all",
+                    "send to all",
+                    "email all",
+                    "email everyone",
+                    "send to everyone"
+                }:
+                    command_matches = list(lead_labels)
+                else:
+                    cleaned_command = re.sub(
+                        r"^(please\s+)?(send|email|mail)(\s+to)?\s*",
+                        "",
+                        command_lower,
+                        flags=re.IGNORECASE
+                    )
+                    cleaned_command = re.sub(
+                        r"^(agencies|leads)\s*[:=-]?\s*",
+                        "",
+                        cleaned_command,
+                        flags=re.IGNORECASE
+                    )
+
+                    requested_names = [
+                        part.strip()
+                        for part in re.split(r"\s*,\s*|\s+and\s+", cleaned_command)
+                        if part.strip()
+                    ]
+
+                    normalized_labels = [
+                        re.sub(r"[^a-z0-9@.]+", " ", label.lower()).strip()
+                        for label in lead_labels
+                    ]
+
+                    for requested in requested_names:
+                        requested_norm = re.sub(
+                            r"[^a-z0-9@.]+",
+                            " ",
+                            requested.lower()
+                        ).strip()
+
+                        found = False
+                        for label, normalized_label in zip(
+                            lead_labels,
+                            normalized_labels
+                        ):
+                            if (
+                                requested_norm in normalized_label
+                                or normalized_label in requested_norm
+                            ):
+                                if label not in command_matches:
+                                    command_matches.append(label)
+                                found = True
+
+                        if not found:
+                            command_not_found.append(requested)
+
+            if command_matches:
+                st.success(
+                    f"Command matched **{len(command_matches)}** agency/agencies."
+                )
+
+            if command_not_found:
+                st.warning(
+                    "No matching agency found for: "
+                    + ", ".join(command_not_found)
+                )
+
+            # Apply a new command to the multiselect only when the command
+            # changes. This keeps manual selections intact on normal reruns.
+            if selection_command.strip():
+                last_command = st.session_state.get(
+                    "_outreach_last_selection_command"
+                )
+                if last_command != selection_command:
+                    st.session_state["outreach_selected_labels"] = list(
+                        command_matches
+                    )
+                    st.session_state["_outreach_last_selection_command"] = selection_command
+
+            selected_labels = st.multiselect(
+                "Select agencies to email",
+                options=lead_labels,
+                key="outreach_selected_labels"
+            )
+
+            selected_indices = [
+                index
+                for index, label in enumerate(lead_labels)
+                if label in selected_labels
+            ]
+
+            selected_leads = [
+                saved_leads[index]
+                for index in selected_indices
+            ]
+
+            st.info(
+                f"Selected **{len(selected_leads)}** of **{len(saved_leads)}** agencies."
+            )
+
+            # ── Email preview ────────────────────────────────────────────────
+            st.markdown("#### 👁️ Email Preview")
+
+            def _render_email(template, lead):
+                """Safely personalize common placeholders in the existing template."""
+                if not isinstance(lead, dict):
+                    return str(template)
+
+                recipient_name = (
+                    lead.get("agency_name")
+                    or lead.get("company_name")
+                    or lead.get("company")
+                    or lead.get("business_name")
+                    or lead.get("name")
+                    or "Agency"
+                )
+                recipient_email = (
+                    lead.get("email")
+                    or lead.get("email_address")
+                    or lead.get("contact_email")
+                    or ""
+                )
+
+                rendered = str(template)
+                replacements = {
+                    "{agency_name}": str(recipient_name),
+                    "{company_name}": str(recipient_name),
+                    "{company}": str(recipient_name),
+                    "{business_name}": str(recipient_name),
+                    "{recipient}": str(recipient_name),
+                    "{name}": str(recipient_name),
+                    "{email}": str(recipient_email),
+                }
+
+                for placeholder, value in replacements.items():
+                    rendered = rendered.replace(placeholder, value)
+
+                return rendered
+
+            if selected_leads:
+                preview_label = st.selectbox(
+                    "Preview email for",
+                    options=[
+                        _lead_label(lead, i)
+                        for i, lead in enumerate(selected_leads)
+                    ],
+                    key="outreach_preview_agency_label"
+                )
+
+                preview_index = [
+                    _lead_label(lead, i)
+                    for i, lead in enumerate(selected_leads)
+                ].index(preview_label)
+                preview_lead = selected_leads[preview_index]
+                preview_name = _lead_label(preview_lead, preview_index)
+                preview_email = ""
+                if isinstance(preview_lead, dict):
+                    preview_email = (
+                        preview_lead.get("email")
+                        or preview_lead.get("email_address")
+                        or preview_lead.get("contact_email")
+                        or ""
+                    )
+
+                preview_subject = _render_email(
+                    COLD_EMAIL_SUBJECT,
+                    preview_lead
+                )
+                preview_body = _render_email(
+                    COLD_EMAIL_BODY,
+                    preview_lead
+                )
+
+                st.text_input(
+                    "To",
+                    value=str(preview_email),
+                    disabled=True,
+                    key="outreach_preview_to"
+                )
+                st.text_input(
+                    "Agency",
+                    value=preview_name,
+                    disabled=True,
+                    key="outreach_preview_agency"
+                )
+                st.text_input(
+                    "Subject",
+                    value=preview_subject,
+                    disabled=True,
+                    key="outreach_preview_subject"
+                )
+                st.text_area(
+                    "Email Body",
+                    value=preview_body,
+                    height=300,
+                    disabled=True,
+                    key="outreach_preview_body"
+                )
+
+                st.caption(
+                    f"The preview above is based on the existing B2B email template. "
+                    f"Nothing is sent until you click the dispatch button below."
+                )
+            else:
+                st.info("Select at least one agency to preview and send an email.")
+
+            # ── Dispatch selected agencies only ──────────────────────────────
+            st.divider()
+            if selected_leads:
+                if st.button(
+                    f"🚀 Dispatch Cold Emails to {len(selected_leads)} Selected Agencies",
+                    use_container_width=True,
+                    key="btn_dispatch_selected_emails"
+                ):
+                    with st.spinner(
+                        f"Sending emails to {len(selected_leads)} selected agencies..."
+                    ):
+                        try:
+                            sent_count = send_cold_emails(
+                                selected_leads,
+                                COLD_EMAIL_SUBJECT,
+                                COLD_EMAIL_BODY
+                            )
+                            st.success(
+                                f"Successfully sent {sent_count} email(s) to the selected agencies."
+                            )
+                        except Exception as e:
+                            st.error(f"Email dispatch failed: {e}")
+            else:
+                st.button(
+                    "🚀 Dispatch Cold Emails",
+                    use_container_width=True,
+                    key="btn_dispatch_disabled",
+                    disabled=True
+                )
         else:
-            st.info("No saved leads available to email. Perform a lead scrape first.") 
+            st.info("No saved leads available to email. Perform a lead scrape first.")
+
