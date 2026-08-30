@@ -71,14 +71,19 @@ def _get_admin_password() -> str:
         return ADMIN_PASSWORD
 
 def _get_gmail_app_password() -> str:
-    """Read the Gmail App Password from Streamlit secrets."""
+    """Read the Gmail App Password from Streamlit secrets or environment."""
     for key in ("GMAIL_APP_PASSWORD", "EMAIL_APP_PASSWORD", "GMAIL_PASSWORD"):
         try:
-            value = st.secrets[key]
+            value = st.secrets.get(key)
             if value:
                 return str(value).strip()
         except Exception:
             pass
+
+        value = os.environ.get(key)
+        if value:
+            return str(value).strip()
+
     return ""
 
 _ss_defaults = {
@@ -732,13 +737,14 @@ if st.session_state.is_admin:
                     "{name}": str(recipient_name),
                     "{email}": str(recipient_email),
                     "{location}": str(lead.get("location", "")),
+                    "{platform_url}": PLATFORM_URL,
                 }
                 for placeholder, value in replacements.items():
                     rendered = rendered.replace(placeholder, value)
 
-                # Only preview-link fix: ensure the live platform URL is used.
+                # Safety net for any stale template text.
                 rendered = rendered.replace(
-                    "https://detective-ai.streamlit.app",
+                    "https://ibmhackathon2026-uzj9dxbwnxgkcdffvztpfa.streamlit.app",
                     PLATFORM_URL.rstrip("/")
                 )
                 return rendered
@@ -827,4 +833,4 @@ if st.session_state.is_admin:
             else:
                 st.button("🚀 Dispatch Cold Emails", use_container_width=True, key="btn_dispatch_disabled", disabled=True)
         else:
-            st.info("No saved leads available to email. Perform a lead scrape first.")
+            st.info("No saved leads available to email. Perform a lead scrape first.") 
