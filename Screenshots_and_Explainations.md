@@ -1,6 +1,6 @@
 ## Suspect Information & Observations
 
-![Suspect Information](screenshots/screenshot(1).png)
+![Suspect Information](Screenshots/screenshot(1).png)
 
 ### Explanation
 
