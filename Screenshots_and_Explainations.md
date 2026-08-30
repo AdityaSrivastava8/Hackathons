@@ -378,7 +378,7 @@ This screen captures additional information required for an outreach or agency i
 
 # Email Sent
 
-![Email Sent](Screenshots/screenshot(19).png)
+![Email Sent](Screenshots/screenshot(27).png)
 
 ### Explanation
 
@@ -398,7 +398,7 @@ This confirms the end-to-end workflow from prospect identification and AI-genera
 
 # Gmail Authentication & Recipient Selection
 
-![Gmail Authentication](Screenshots/screenshot(21).png)
+![Gmail Authentication](Screenshots/screenshot(25).png)
 
 ### Explanation
 
@@ -434,7 +434,7 @@ The confirmation provides clear feedback to the user that the selected outreach 
 
 # Generated Outreach Email
 
-![Generated Outreach Email](Screenshots/screenshot(23).png)
+![Generated Outreach Email](Screenshots/screenshot(26).png)
 
 ### Explanation
 
