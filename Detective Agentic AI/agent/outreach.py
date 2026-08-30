@@ -15,7 +15,7 @@ DATA_DIR = os.path.join(BASE_DIR, "data")
 LEADS_FILE = os.path.join(DATA_DIR, "leads.json")
 
 SENDER_EMAIL = "yeahboyadi@gmail.com"
-PLATFORM_URL = "https://ibmhackathon2026-uzj9dxbwnxgkcdffvztpfa.streamlit.app/on2026-uzj9dxbwnxgkcdffvztpfa.streamlit.app/"
+PLATFORM_URL = "https://ibmhackathon2026-uzj9dxbwnxgkcdffvztpfa.streamlit.app/"
 
 COLD_EMAIL_SUBJECT = "25 Free AI Profiling Credits for {agency_name} — Detective Agentic AI"
 
