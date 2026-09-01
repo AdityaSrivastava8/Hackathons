@@ -2,20 +2,20 @@
 PROJECT ARCHITECTURE & FEATURE IMPLEMENTATION LOG: COMPLETE PLATFORM ENGINE
 ================================================================================
 
-EXECUTIVE OVERVIEW & DEVELOPER WORKFLOW (BOB)
+EXECUTIVE OVERVIEW & DEVELOPER WORKFLOW (IBM BOB)
 --------------------------------------------------------------------------------
 This document details the complete technical architecture, security protocols, 
 and prompt-driven execution workflows engineered for the "Detective Agentic AI 
 & RAG Profiling System".
 
 The codebase and system architecture documented below are executed and maintained 
-via "Bob" (Bolt.new / Cursor AI Developer Agent). Development follows a structured 
+via "IBM Bob" (IBM SkillsBuild / PBEL AI Assistant). Development follows a structured 
 prompt-driven pattern: architectural prompt blocks and bug-fix specifications 
-are provided directly to Bob, who handles code generation, Streamlit state management, 
-module refactoring, and GitHub deployments.
+are provided directly to IBM Bob, who handles code generation, Streamlit state management, 
+module refactoring, and project implementation.
 
 
-CORE FEATURES IMPLEMENTED BY BOB
+CORE FEATURES IMPLEMENTED BY IBM BOB
 --------------------------------------------------------------------------------
 
 1. B2B Lead Scraping & Cold Email Outreach Pipeline:
