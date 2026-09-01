@@ -2,109 +2,51 @@
 PROJECT ARCHITECTURE & FEATURE IMPLEMENTATION LOG: COMPLETE PLATFORM ENGINE
 ================================================================================
 
-1. EXECUTIVE OVERVIEW
+EXECUTIVE OVERVIEW & DEVELOPER WORKFLOW (BOB)
 --------------------------------------------------------------------------------
 This document details the complete technical architecture, security protocols, 
-investigative tools, and business automation subsystems engineered within the 
-"Detective Agentic AI & RAG Profiling System".
+and prompt-driven execution workflows engineered for the "Detective Agentic AI 
+& RAG Profiling System".
 
-The platform delivers a dual-purpose capability:
-1. Primary Application Layer: An agentic criminal profiling and precedent matching 
-   system designed for legal defense teams, law enforcement, and private investigators.
-2. Business Acceleration Layer: An autonomous B2B lead discovery, enrichment, and 
-   cold email outreach engine designed to acquire local/regional agency clients, 
-   paired with a dynamic UPI dynamic payment gateway for self-serve account top-ups.
+The codebase and system architecture documented below are executed and maintained 
+via "Bob" (Bolt.new / Cursor AI Developer Agent). Development follows a structured 
+prompt-driven pattern: architectural prompt blocks and bug-fix specifications 
+are provided directly to Bob, who handles code generation, Streamlit state management, 
+module refactoring, and GitHub deployments.
 
 
-2. ROLE-BASED ACCESS CONTROL & SECURITY ARCHITECTURE
+CORE FEATURES IMPLEMENTED BY BOB
 --------------------------------------------------------------------------------
-To protect administrative and outreach functionalities from standard public users, 
-the application implements a strict Role-Based Access Control (RBAC) pattern:
 
-  A. Sidebar Authentication Portal:
-     - Houses a secure "🔐 Admin Portal Login" expander within the sidebar.
-     - Validates the admin secret against `st.secrets["ADMIN_PASSWORD"]` (with fallback to 
-       the master key: `-----`).
-     - Maintains session isolation using `st.session_state["is_admin"]`.
+1. B2B Lead Scraping & Cold Email Outreach Pipeline:
+   Engineered the four-stage discovery waterfall (OpenStreetMap, DuckDuckGo, Wikipedia, 
+   and Seed fallback) in `agent/outreach.py` and integrated `yagmail` for automated 
+   cold email campaigns featuring pre-and-post payment feature comparisons and trial quotas.
 
-  B. Dynamic Interface Scaffolding:
-     - Public User View: Renders only the public-facing navigation tabs:
-       * 🔍 Profiling Dashboard
-       * 💳 Billing & Plans
-       * 📬 Contact & Feedback
-     - Admin Authenticated View: Dynamically injects protected operational tabs and controls:
-       * 📢 B2B Agency Acquisition (Lead engine & yagmail campaign manager)
-       * 🛠️ Admin Payment Approvals (Manual UTR verification & quota release dashboard)
-     - Provides an instant "🚪 Admin Logout" control that clears session flags and 
-       resets the interface via `st.rerun()`.
+2. Interactive Suspect Profiling & State Management Module:
+   Built the suspect risk and tendency scoring engine while resolving persistent UI 
+   freezing and stagnant numbering bugs using dynamic session-state key assignments 
+   (`key=f"suspect_{counter}"`) and reset workflows.
 
+3. Role-Based Access Control (RBAC) Admin Portal:
+   Implemented the secure sidebar authentication gate requiring the master password `-----` 
+   to dynamically reveal administrative tabs ("📢 B2B Agency Acquisition" and "🛠️ Admin Payment Approvals").
 
-3. CORE INVESTIGATIVE & RAG PROFILING ENGINE
---------------------------------------------------------------------------------
-The primary module (`agent/profiler.py`) provides intelligent suspect evaluation, 
-vector-based legal precedent matching, and structured report exports:
+4. ChromaDB RAG Precedent Retrieval:
+   Integrated persistent vector database matching using ChromaDB to query input criminal 
+   behaviors and MOs against historical legal case records and surface top relevant precedents.
 
-  A. Interactive Suspect Profiling & Risk Analysis:
-     - Evaluates suspect parameters (Name/Alias, Age, Observed Behaviors, MO, and Traits).
-     - Dynamically computes Tendency Scores (%) and Risk Levels (LOW, MEDIUM, HIGH, CRITICAL).
-     - Utilizes dynamic session-state keys (e.g., `key=f"suspect_{counter}"`) to support 
-       consecutive multi-suspect evaluations without interface freezing or state retention bugs.
-     - Includes an explicit "➕ Analyze Another Suspect / Reset Inputs" workflow.
+5. Dynamic Dossier & PDF Export:
+   Programmed automated report generation logic using `fpdf2` to output downloadable 
+   executive summary dossiers containing risk metrics, suspect profiles, and matched precedents.
 
-  B. ChromaDB RAG Precedent Retrieval:
-     - Queries a persistent vector database (`ChromaDB`) to match input MOs against historical 
-       legal cases, court rulings, and criminal records.
-     - Computes semantic similarity thresholds to surface top relevant precedent matches.
-
-  C. Dynamic Dossier & PDF Export:
-     - Generates structured executive summary reports in downloadable PDF format (`fpdf2`) 
-       containing complete suspect profiles, risk metrics, and matched precedent summaries.
+6. Dynamic UPI Payment Gateway & UTR Verification:
+   Developed the real-time UPI QR code generator (`qrcode`) and local JSON persistence 
+   system (`data/payments.json`) to handle manual transaction UTR submissions and tier-based 
+   evaluation quota releases.
 
 
-4. B2B LEAD DISCOVERY & OUTREACH PIPELINE (`agent/outreach.py`)
---------------------------------------------------------------------------------
-The core lead discovery engine employs a multi-tier fallback architecture:
-
-  A. Four-Stage Waterfall Discovery Architecture:
-     - Stage 1: OpenStreetMap (OSM) / Overpass API Integration (25 km vector searches around 
-       geocoded target coordinates using tags like `office=detective`, `office=lawyer`).
-     - Stage 2: DuckDuckGo Instant Answer API Fallback (Structured zero-click queries).
-     - Stage 3: Wikipedia OpenSearch API Integration (Institutional/legal entity extraction).
-     - Stage 4: Deterministic Seed Fallback (Ensures complete continuity in offline/restricted networks).
-
-  B. Data Normalization & Local Persistence:
-     - Extracts root domains, standardizes location strings, and constructs normalized contact emails.
-     - Performs multi-field composite key deduplication.
-     - Persists records locally to `data/leads.json`.
-
-  C. Automated Cold Email Outreach Engine (`yagmail`):
-     - Secure SMTP transmission via configured sender `yeahboyadi@gmail.com`.
-     - Dynamically injects recipient parameters (`{agency_name}`, `{location}`) into high-converting 
-       B2B offer templates detailing the 25-evaluation trial and plan tiers.
-     - Features rate limiting, real-time dispatch logs, and visual progress bar callbacks.
-
-
-5. DYNAMIC UPI PAYMENT GATE & QUOTA UNLOCK
---------------------------------------------------------------------------------
-The billing subsystem (`frontend/app.py`) manages tier upgrades and monetization flows:
-
-  A. Tiered Pricing Model:
-     - 🥉 Starter Agency: ₹7,999 / mo (100 Evaluations)
-     - 🥈 Pro Agency: ₹24,999 / mo (500 Evaluations)
-     - 🥇 Enterprise SaaS: ₹64,999 / mo (Unlimited Evaluations)
-
-  B. Dynamic UPI QR Code Generation:
-     - Dynamically generates scanning QR codes (`qrcode`) using standard UPI URI encoding:
-       `upi://pay?pa=adityasriv@ptyes&pn=Aditya%20Srivastava&am={AMOUNT}&cu=INR&tn=Plan_Upgrade`
-
-  C. UTR Verification & Admin Approval Loop:
-     - Prompts users to submit their 12-digit transaction UTR reference code after payment.
-     - Logs pending payment records to `data/payments.json`.
-     - Admin dashboard allows reviewing incoming UTR records, approving transactions, and 
-       releasing the exact plan evaluation quota to the user.
-
-
-6. EXPOSED MODULE FUNCTIONS & EXPORTS
+EXPOSED MODULE FUNCTIONS & FILE STRUCTURE
 --------------------------------------------------------------------------------
   * `frontend/app.py`          -> Main Streamlit application entry point and tab manager.
   * `agent/profiler.py`        -> RAG precedent engine, suspect profiling, and PDF report generator.
