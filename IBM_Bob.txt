@@ -24,7 +24,7 @@ the application implements a strict Role-Based Access Control (RBAC) pattern:
   A. Sidebar Authentication Portal:
      - Houses a secure "🔐 Admin Portal Login" expander within the sidebar.
      - Validates the admin secret against `st.secrets["ADMIN_PASSWORD"]` (with fallback to 
-       the master key: ---- ).
+       the master key: `-----`).
      - Maintains session isolation using `st.session_state["is_admin"]`.
 
   B. Dynamic Interface Scaffolding:
